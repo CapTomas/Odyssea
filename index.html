@@ -35,7 +35,6 @@
                 <div class="console-box collapsible" id="captain-status-console-box">
                     <div class="console-box-header">
                         <h3 class="console-box-title" data-lang-key="title_captain_status">Captain</h3>
-
                     </div>
                     <div class="console-box-content">
                         <div class="info-item">
@@ -56,7 +55,6 @@
                         </div>
                     </div>
                 </div>
-
 
                 <div class="console-box collapsible" id="ship-status-console-box">
                     <div class="console-box-header">
@@ -102,6 +100,19 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="console-box collapsible" id="comms-channel-console-box">
+                    <div class="console-box-header">
+                        <h3 class="console-box-title" data-lang-key="title_comms_channel">Comms Channel</h3>
+                    </div>
+                    <div class="console-box-content">
+                        <div class="info-item full-width">
+                            <span class="label" data-lang-key="label_comms_status">Channel Status:</span>
+                            <span id="info-comms-channel-status" class="value">---</span>
+                        </div>
+                    </div>
+                </div>
+
             </aside>
 
             <main id="center-column">
@@ -145,12 +156,15 @@
                             <span id="info-directive-reward" class="value">---</span>
                         </div>
                         <div class="info-item">
+                            <span class="label" data-lang-key="label_directive_status">Status:</span>
+                            <span id="info-directive-status" class="value">---</span>
+                        </div>
+                        <div class="info-item">
                             <span class="label" data-lang-key="label_alert_level">Alert Level:</span>
                             <span id="info-alert-level" class="value status-ok">---</span>
                         </div>
                     </div>
                 </div>
-
 
                 <div class="console-box collapsible" id="navigation-data-console-box">
                     <div class="console-box-header">
@@ -179,6 +193,33 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="console-box collapsible" id="enemy-intel-console-box">
+                    <div class="console-box-header">
+                        <h3 class="console-box-title" data-lang-key="title_enemy_intel">Enemy Vessel Intel</h3>
+                    </div>
+                    <div class="console-box-content">
+                        <div class="info-item">
+                            <span class="label" data-lang-key="label_enemy_ship_type">Enemy Type:</span>
+                            <span id="info-enemy-ship-type" class="value">---</span>
+                        </div>
+                        <div class="info-item-meter">
+                            <span class="label" data-lang-key="label_enemy_shields">Enemy Shields:</span>
+                            <div class="meter-bar-container">
+                                <div id="meter-enemy-shields" class="meter-bar"></div>
+                            </div>
+                            <span id="info-enemy-shields-status" class="value-overlay">---</span>
+                        </div>
+                        <div class="info-item-meter">
+                            <span class="label" data-lang-key="label_enemy_hull">Enemy Hull:</span>
+                            <div class="meter-bar-container">
+                                <div id="meter-enemy-hull" class="meter-bar"></div>
+                            </div>
+                            <span id="info-enemy-hull-integrity" class="value-overlay">---</span>
+                        </div>
+                    </div>
+                </div>
+
             </aside>
 
         </div>
