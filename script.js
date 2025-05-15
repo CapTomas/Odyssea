@@ -145,7 +145,7 @@ document.addEventListener('DOMContentLoaded', () => {
             "alert_level_info": "Status",
             "activity_exploring": "Exploring",
             "activity_fighting": "Fighting",
-            "activity_communicating": "Communicating", // Add more as needed
+            "activity_communicating": "Communicating",
         },
         cs: {
             "toggle_language": "Česky",
@@ -210,7 +210,7 @@ document.addEventListener('DOMContentLoaded', () => {
             "alert_level_info": "Stav",
             "activity_exploring": "Průzkum",
             "activity_fighting": "Boj",
-            "activity_communicating": "Komunikace", // Add more as needed
+            "activity_communicating": "Komunikace",
         }
     };
     const NARRATIVE_LANG_PROMPT_PARTS = {
@@ -246,7 +246,6 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             await Promise.all(loadingPromises);
             console.log("All prompts loaded successfully.");
-            // Check if any prompt failed to load (contains "Error:")
             for (const name of promptNames) {
                 if (gamePrompts[name] && gamePrompts[name].startsWith("Error:")) {
                     throw new Error(`Failed to load prompt: ${name}`);
@@ -259,7 +258,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 systemStatusIndicator.textContent = (uiLangData[currentAppLanguage]?.status_error || "Error");
                 systemStatusIndicator.className = 'status-indicator status-danger';
             }
-            // Disable game start if prompts fail
             if (startGameButton) startGameButton.disabled = true;
             if (playerCallsignInput) playerCallsignInput.disabled = true;
             return false;
@@ -330,15 +328,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const getSystemPrompt = (currentCallsignForPrompt, promptTypeToUse) => {
         const narrativeLanguageInstruction = NARRATIVE_LANG_PROMPT_PARTS[currentNarrativeLanguage] || NARRATIVE_LANG_PROMPT_PARTS[DEFAULT_LANGUAGE];
-        let basePromptText = gamePrompts[promptTypeToUse] || gamePrompts.default; // Fallback to default
+        let basePromptText = gamePrompts[promptTypeToUse] || gamePrompts.default;
 
         if (!basePromptText || basePromptText.startsWith("Error:")) {
             console.error(`Error: Prompt text for type "${promptTypeToUse}" is invalid or not loaded.`);
-            // Return a very basic error prompt to avoid crashing Gemini call
             return `{"narrative": "SYSTEM ERROR: Critical prompt data missing. Cannot proceed.", "dashboard_updates": {}, "suggested_actions": ["Contact support."], "game_state_indicators": {"activity_status": "Error", "combat_engaged": false, "comms_channel_active": false}}`;
         }
 
-        // Replace placeholders
         basePromptText = basePromptText.replace(/\$\{narrativeLanguageInstruction\}/g, narrativeLanguageInstruction);
         basePromptText = basePromptText.replace(/\$\{currentCallsignForPrompt\}/g, currentCallsignForPrompt || 'UNKNOWN_CAPTAIN');
         basePromptText = basePromptText.replace(/\$\{currentNarrativeLanguage\.toUpperCase\(\)\}/g, currentNarrativeLanguage.toUpperCase());
@@ -399,6 +395,148 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    const setMeter = (barEl, textEl, newPercentageStr, meterType, options = {}) => {
+        const { highlight = true, newStatusText, initialPlaceholder } = options;
+
+        if (!textEl && !barEl) return;
+
+        let finalPct = -1;
+        let finalStatusTextPart = null;
+
+        if (newPercentageStr !== undefined && newPercentageStr !== null) {
+            let parsedPct = parseInt(newPercentageStr, 10);
+            if (!isNaN(parsedPct)) {
+                finalPct = Math.max(0, Math.min(100, parsedPct));
+            } else {
+                const naShortText = uiLangData[currentAppLanguage]?.not_available_short || 'N/A';
+                if (textEl && (newPercentageStr === "---" || newPercentageStr === naShortText)) {
+                    if (textEl.textContent !== newPercentageStr) {
+                        textEl.textContent = newPercentageStr;
+                        if (highlight) highlightElementUpdate(textEl);
+                    }
+                    if (barEl && barEl.style.width !== '0%') {
+                        barEl.style.width = '0%';
+                        if (highlight) highlightElementUpdate(textEl || barEl.parentElement);
+                    }
+                    return;
+                }
+                if (meterType === 'shields' || meterType === 'enemy_shields') {
+                    finalPct = 0;
+                } else if (textEl) {
+                    const currentContent = textEl.textContent;
+                    const pctMatch = currentContent.match(/(\d+)%/);
+                    if (pctMatch) finalPct = parseInt(pctMatch[1], 10);
+                    else finalPct = (meterType === 'integrity' || meterType === 'fuel') ? 100 : 0;
+                } else {
+                    finalPct = (meterType === 'integrity' || meterType === 'fuel') ? 100 : 0;
+                }
+            }
+        } else {
+            if (textEl) {
+                const currentContent = textEl.textContent;
+                const pctMatch = currentContent.match(/(\d+)%/);
+                if (pctMatch) {
+                    finalPct = parseInt(pctMatch[1], 10);
+                } else if (currentContent === (uiLangData[currentAppLanguage]?.not_available_short || 'N/A') || currentContent === "---") {
+                    finalPct = 0;
+                }
+            }
+            if (finalPct === -1) {
+                const placeholderPctMatch = initialPlaceholder ? initialPlaceholder.match(/(\d+)%/) : null;
+                if (placeholderPctMatch) {
+                    finalPct = parseInt(placeholderPctMatch[1], 10);
+                } else {
+                    finalPct = (meterType === 'shields' || meterType === 'enemy_shields') ? 0 : 100;
+                }
+            }
+        }
+
+        if (meterType === 'shields' || meterType === 'enemy_shields') {
+            if (newStatusText !== undefined && newStatusText !== null) {
+                finalStatusTextPart = newStatusText;
+            } else {
+                let currentStatusFromDOM = null;
+                if (textEl) {
+                    const currentContent = textEl.textContent;
+                    const statusMatch = currentContent.match(/^(.*?):\s*\d+%/);
+                    if (statusMatch) {
+                        currentStatusFromDOM = statusMatch[1].trim();
+                    }
+                }
+
+                if (currentStatusFromDOM) {
+                    finalStatusTextPart = currentStatusFromDOM;
+                } else {
+                    finalStatusTextPart = finalPct > 0 ? (uiLangData[currentAppLanguage]?.online || 'Online') : (uiLangData[currentAppLanguage]?.offline || 'Offline');
+                }
+
+                const offlineText = uiLangData[currentAppLanguage]?.offline || 'Offline';
+                const onlineText = uiLangData[currentAppLanguage]?.online || 'Online';
+                if (finalPct === 0 && finalStatusTextPart !== offlineText) {
+                    finalStatusTextPart = offlineText;
+                } else if (finalPct > 0 && finalStatusTextPart === offlineText) {
+                     // Only switch from "Offline" to "Online" if percentage is now positive.
+                    // This avoids overriding specific statuses like "Fluctuating" if they were already set.
+                    if (textEl && textEl.textContent.toLowerCase().startsWith(offlineText.toLowerCase())) {
+                        finalStatusTextPart = onlineText;
+                    }
+                }
+            }
+        }
+
+        let newTextContent = '';
+        let newBarColor = '';
+
+        if (meterType === 'shields' || meterType === 'enemy_shields') {
+            finalStatusTextPart = finalStatusTextPart || (finalPct > 0 ? (uiLangData[currentAppLanguage]?.online || 'Online') : (uiLangData[currentAppLanguage]?.offline || 'Offline'));
+            newTextContent = `${finalStatusTextPart}: ${finalPct}%`;
+
+            newBarColor = 'var(--color-status-info-bar)';
+            const statusTextLower = finalStatusTextPart.toLowerCase();
+            const offlineTextLower = (uiLangData[currentAppLanguage]?.offline || 'offline').toLowerCase();
+
+            if (statusTextLower === offlineTextLower || finalPct === 0) {
+                newBarColor = 'var(--color-status-offline-bar)';
+            } else if (finalPct < 25) {
+                newBarColor = 'var(--color-status-danger-bar)';
+            } else if (finalPct < 60) {
+                newBarColor = 'var(--color-status-warning-bar)';
+            }
+        } else if (meterType === 'integrity' || meterType === 'enemy_hull') {
+            newTextContent = `${finalPct}%`;
+            newBarColor = 'var(--color-status-integrity-ok-bar)';
+            if (finalPct < 25) newBarColor = 'var(--color-status-danger-bar)';
+            else if (finalPct < 60) newBarColor = 'var(--color-status-warning-bar)';
+        } else if (meterType === 'fuel') {
+            newTextContent = `${finalPct}%`;
+            newBarColor = 'var(--color-status-fuel-ok-bar)';
+            if (finalPct < 20) newBarColor = 'var(--color-status-danger-bar)';
+            else if (finalPct < 50) newBarColor = 'var(--color-status-fuel-warning-bar)';
+        }
+
+        let textChanged = false;
+        let barStyleChanged = false;
+
+        if (textEl && textEl.textContent !== newTextContent) {
+            textEl.textContent = newTextContent;
+            textChanged = true;
+        }
+        if (barEl) {
+            if (barEl.style.width !== `${finalPct}%`) {
+                barEl.style.width = `${finalPct}%`;
+                barStyleChanged = true;
+            }
+            if (barEl.style.backgroundColor !== newBarColor) {
+                barEl.style.backgroundColor = newBarColor;
+                barStyleChanged = true;
+            }
+        }
+
+        if (highlight && (textChanged || barStyleChanged)) {
+            highlightElementUpdate(textEl || (barEl ? barEl.parentElement : null));
+        }
+    };
+
     function updateDashboard(updates) {
         if (!updates) return;
         const unknown = uiLangData[currentAppLanguage]?.unknown || '---';
@@ -418,82 +556,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 } else if (currentVal === '' || currentVal === initialPlaceholder || currentVal === defaultValue) {
                     // el.textContent = defaultValue; // Only set if it's truly an initial setup or explicit reset
-                }
-            }
-        };
-
-        const setMeter = (barEl, textEl, valuePctStr, meterType, options = {}) => {
-            const {
-                highlight = true, onlineStatusText, initialPlaceholder
-            } = options;
-            let valuePct = parseInt(valuePctStr, 10);
-
-            if (isNaN(valuePct) && valuePctStr !== undefined && valuePctStr !== null) { // If valuePctStr is not a number but defined (e.g. "---")
-                if (textEl) {
-                    if (textEl.textContent !== valuePctStr) {
-                        textEl.textContent = valuePctStr;
-                        if (highlight) highlightElementUpdate(textEl);
-                    }
-                }
-                if (barEl) {
-                    if (barEl.style.width !== '0%') {
-                        barEl.style.width = '0%';
-                        if (highlight && (!textEl || textEl.textContent === valuePctStr)) highlightElementUpdate(textEl || barEl.parentElement);
-                    }
-                }
-                return;
-            }
-
-            valuePct = isNaN(valuePct) ? (meterType === 'shields' || meterType === 'enemy_shields' ? 0 : 100) : valuePct; // Default to 0 for shields if NaN, 100 for others
-            valuePct = Math.max(0, Math.min(100, valuePct));
-
-
-            let newTextContent = '';
-            let newBarColor = '';
-            let barStyleChanged = false;
-
-            if (meterType === 'shields' || meterType === 'enemy_shields') {
-                const statusToDisplay = onlineStatusText || (valuePct > 0 ? (uiLangData[currentAppLanguage]?.online || 'Online') : (uiLangData[currentAppLanguage]?.offline || 'Offline'));
-                newTextContent = `${statusToDisplay}: ${valuePct}%`;
-
-                newBarColor = 'var(--color-status-info-bar)'; // Default blue for shields
-                if (statusToDisplay.toLowerCase() === (uiLangData[currentAppLanguage]?.offline || 'offline').toLowerCase()) {
-                    newBarColor = 'var(--color-status-offline-bar)';
-                } else if (valuePct < 25) {
-                    newBarColor = 'var(--color-status-danger-bar)';
-                } else if (valuePct < 60) {
-                    newBarColor = 'var(--color-status-warning-bar)';
-                }
-            } else if (meterType === 'integrity' || meterType === 'enemy_hull') {
-                newTextContent = `${valuePct}%`;
-                newBarColor = 'var(--color-status-integrity-ok-bar)'; // Default green for integrity/hull
-                if (valuePct < 25) newBarColor = 'var(--color-status-danger-bar)';
-                else if (valuePct < 60) newBarColor = 'var(--color-status-warning-bar)';
-            } else if (meterType === 'fuel') {
-                newTextContent = `${valuePct}%`;
-                newBarColor = 'var(--color-status-fuel-ok-bar)'; // Default amber for fuel
-                if (valuePct < 20) newBarColor = 'var(--color-status-danger-bar)';
-                else if (valuePct < 50) newBarColor = 'var(--color-status-fuel-warning-bar)';
-            }
-
-            if (textEl) {
-                if (textEl.textContent !== newTextContent) {
-                    textEl.textContent = newTextContent;
-                    if (highlight) highlightElementUpdate(textEl);
-                }
-            }
-            if (barEl) {
-                if (barEl.style.width !== `${valuePct}%`) {
-                    barEl.style.width = `${valuePct}%`;
-                    barStyleChanged = true;
-                }
-                if (barEl.style.backgroundColor !== newBarColor) {
-                    barEl.style.backgroundColor = newBarColor;
-                    barStyleChanged = true;
-                }
-                if (barStyleChanged && highlight && textEl && textEl.textContent === newTextContent) {
-                    // If only bar changed but text was same, still highlight the text element container
-                    highlightElementUpdate(textEl);
                 }
             }
         };
@@ -524,7 +586,7 @@ document.addEventListener('DOMContentLoaded', () => {
             initialPlaceholder: '100%'
         });
         setMeter(meterShipShields, infoShipShields, updates.shieldsPct, 'shields', {
-            onlineStatusText: updates.shieldsStatus,
+            newStatusText: updates.shieldsStatus,
             initialPlaceholder: `${uiLangData[currentAppLanguage]?.online || 'Online'}: 100%`
         });
         setMeter(meterShipFuel, infoShipFuel, updates.fuelPct, 'fuel', {
@@ -552,7 +614,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         setText(infoDirectiveStatus, updates.directive_status, {
             initialPlaceholder: unknown
-        }); // Will be updated by AI
+        });
 
         // Alert Level
         if (infoAlertLevel) {
@@ -561,7 +623,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (updates.alertLevel !== undefined) {
                 const newAlertDescriptionFromAI = updates.alertLevel;
                 let alertSeverity = 'info';
-                let alertDisplayKey = 'alert_level_info'; // Default
+                let alertDisplayKey = 'alert_level_info';
                 const lowerVal = String(newAlertDescriptionFromAI).trim().toLowerCase();
 
                 if (lowerVal.includes('red') || lowerVal.includes('critical') || lowerVal.includes('danger') || lowerVal.includes('nebezpečí') || lowerVal.includes('severe') || lowerVal.includes('high') || lowerVal.includes('maximum') || lowerVal.includes('kritické')) {
@@ -606,13 +668,13 @@ document.addEventListener('DOMContentLoaded', () => {
             initialPlaceholder: unknown
         });
 
-        // Enemy Intel (if provided)
+        // Enemy Intel
         setText(infoEnemyShipType, updates.enemy_ship_type, {
             initialPlaceholder: unknown,
             highlight: enemyIntelConsoleBox.style.display !== 'none'
         });
         setMeter(meterEnemyShields, infoEnemyShieldsStatus, updates.enemy_shields_pct, 'enemy_shields', {
-            onlineStatusText: updates.enemy_shields_status_text,
+            newStatusText: updates.enemy_shields_status_text,
             highlight: enemyIntelConsoleBox.style.display !== 'none',
             initialPlaceholder: `${uiLangData[currentAppLanguage]?.offline || 'Offline'}: 0%`
         });
@@ -653,10 +715,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function handleGameStateIndicators(indicators, isDuringInitialBoot = false) {
         if (!indicators) return;
-        const CONDITIONAL_CONSOLE_BOOT_DELAY = 3000; // ms (max_config_delay + transition_duration + buffer)
+        const CONDITIONAL_CONSOLE_BOOT_DELAY = 3000;
 
 
-        // --- Combat Intel Console ---
         const shouldShowEnemyIntel = indicators.combat_engaged === true;
         if (enemyIntelConsoleBox) {
             const isCurrentlyVisible = enemyIntelConsoleBox.style.display !== 'none';
@@ -670,9 +731,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         animateConsoleBox(enemyIntelConsoleBox.id, true);
                     }
                 }
-            } else { // Should NOT be shown
+            } else {
                 if (isCurrentlyVisible) {
-                    animateConsoleBox(enemyIntelConsoleBox.id, false); // Start collapse
+                    animateConsoleBox(enemyIntelConsoleBox.id, false);
                     const content = enemyIntelConsoleBox.querySelector('.console-box-content');
                     const hideEnemyIntel = () => {
                         if (!enemyIntelConsoleBox.classList.contains('is-expanded') && enemyIntelConsoleBox.style.display !== 'none') {
@@ -698,7 +759,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // --- Comms Channel Console ---
         const shouldShowCommsChannel = indicators.comms_channel_active === true;
         if (commsChannelConsoleBox) {
             const isCurrentlyVisible = commsChannelConsoleBox.style.display !== 'none';
@@ -712,9 +772,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         animateConsoleBox(commsChannelConsoleBox.id, true);
                     }
                 }
-            } else { // Should NOT be shown
+            } else {
                 if (isCurrentlyVisible) {
-                    animateConsoleBox(commsChannelConsoleBox.id, false); // Start collapse
+                    animateConsoleBox(commsChannelConsoleBox.id, false);
 
                     const content = commsChannelConsoleBox.querySelector('.console-box-content');
                     const hideComms = () => {
@@ -741,7 +801,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Update current prompt type for next AI call
         if (indicators.combat_engaged === true) {
             currentPromptType = 'combat';
         } else {
@@ -964,37 +1023,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const onlineText = uiLangData[currentAppLanguage]?.online || 'Online';
         const offlineText = uiLangData[currentAppLanguage]?.offline || 'Offline';
 
-        // Player
         if (infoPlayerCallsign) infoPlayerCallsign.textContent = playerCallsign || unknown;
         if (infoPlayerCredits) infoPlayerCredits.textContent = `${unknown} UEC`;
         if (infoPlayerReputation) infoPlayerReputation.textContent = unknown;
         if (infoPlayerAffiliation) infoPlayerAffiliation.textContent = unknown;
 
-        // Ship
         if (infoShipName) infoShipName.textContent = unknown;
         if (infoShipType) infoShipType.textContent = unknown;
-        if (infoShipIntegrity) infoShipIntegrity.textContent = '100%';
-        if (meterShipIntegrity) {
-            meterShipIntegrity.style.width = '100%';
-            meterShipIntegrity.style.backgroundColor = 'var(--color-status-integrity-ok-bar)';
-        }
-        if (infoShipShields) infoShipShields.textContent = `${onlineText}: 100%`;
-        if (meterShipShields) {
-            meterShipShields.style.width = '100%';
-            meterShipShields.style.backgroundColor = 'var(--color-status-info-bar)';
-        }
-        if (infoShipFuel) infoShipFuel.textContent = '100%';
-        if (meterShipFuel) {
-            meterShipFuel.style.width = '100%';
-            meterShipFuel.style.backgroundColor = 'var(--color-status-fuel-ok-bar)';
-        }
+
+        // Use setMeter for consistent initialization and placeholder handling
+        setMeter(meterShipIntegrity, infoShipIntegrity, '100', 'integrity', { initialPlaceholder: '100%' });
+        setMeter(meterShipShields, infoShipShields, '100', 'shields', { newStatusText: onlineText, initialPlaceholder: `${onlineText}: 100%` });
+        setMeter(meterShipFuel, infoShipFuel, '100', 'fuel', { initialPlaceholder: '100%' });
+        
         if (infoShipCargo) infoShipCargo.textContent = `${na}/${na} SCU`;
         if (infoShipSpeed) infoShipSpeed.textContent = `0 m/s`;
 
-        // Comms
         if (infoCommsChannelStatus) infoCommsChannelStatus.textContent = unknown;
 
-        // Mission
         if (infoObjective) infoObjective.textContent = unknown;
         if (infoDirectiveReward) infoDirectiveReward.textContent = unknown;
         if (infoDirectiveStatus) infoDirectiveStatus.textContent = unknown;
@@ -1004,25 +1050,16 @@ document.addEventListener('DOMContentLoaded', () => {
             infoAlertLevel.className = 'value status-ok';
         }
 
-        // Navigation
         if (infoLocation) infoLocation.textContent = unknown;
         if (infoSystemFaction) infoSystemFaction.textContent = unknown;
         if (infoEnvironment) infoEnvironment.textContent = unknown;
         if (infoSensorConditions) infoSensorConditions.textContent = unknown;
         if (infoStardate) infoStardate.textContent = unknown;
 
-        // Enemy Intel
+        // Use setMeter for enemy intel initialization
         if (infoEnemyShipType) infoEnemyShipType.textContent = unknown;
-        if (infoEnemyShieldsStatus) infoEnemyShieldsStatus.textContent = `${offlineText}: 0%`;
-        if (meterEnemyShields) {
-            meterEnemyShields.style.width = '0%';
-            meterEnemyShields.style.backgroundColor = 'var(--color-status-offline-bar)';
-        }
-        if (infoEnemyHullIntegrity) infoEnemyHullIntegrity.textContent = `100%`;
-        if (meterEnemyHull) {
-            meterEnemyHull.style.width = '100%';
-            meterEnemyHull.style.backgroundColor = 'var(--color-status-integrity-ok-bar)';
-        }
+        setMeter(meterEnemyShields, infoEnemyShieldsStatus, '0', 'enemy_shields', { newStatusText: offlineText, initialPlaceholder: `${offlineText}: 0%` });
+        setMeter(meterEnemyHull, infoEnemyHullIntegrity, '100', 'enemy_hull', { initialPlaceholder: '100%' });
 
 
         if (playerCallsignInput) playerCallsignInput.placeholder = uiLangData[currentAppLanguage]?.placeholder_callsign_login || "Enter callsign...";
@@ -1151,7 +1188,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function initializeApp() {
-        setAppLanguage(currentAppLanguage);
+        setAppLanguage(currentAppLanguage); // This also calls initializeDashboardDefaultTexts
 
         if (systemStatusIndicator) {
             systemStatusIndicator.textContent = (uiLangData[currentAppLanguage]?.standby || "Standby");
