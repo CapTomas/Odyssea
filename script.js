@@ -1,6 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
 
-    const GEMINI_API_KEY = "AIzaSyA84Kyu7r2tTnaP_u5q9dd-B4NiTnwDkso"; // Replace with your actual key
     const DEFAULT_LANGUAGE = 'en';
     const UPDATE_HIGHLIGHT_DURATION = 5000; // ms
 
@@ -849,81 +848,54 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     async function callGeminiAPI(currentTurnHistory) {
-        if (!GEMINI_API_KEY || GEMINI_API_KEY === "YOUR_GEMINI_API_KEY_HERE") {
-            addMessageToLog("CRITICAL ERROR: API Key not configured. Please replace placeholder in script.js.", 'system');
-            const errorText = (uiLangData[currentAppLanguage]?.status_error || "Error");
-            if (systemStatusIndicator) {
-                systemStatusIndicator.textContent = errorText;
-                systemStatusIndicator.className = 'status-indicator status-danger';
-            }
-            return null;
-        }
-
+    
         setGMActivity(true);
         clearSuggestedActions();
-
+    
         const activePromptType = currentTurnHistory.length === 1 && currentTurnHistory[0].role === 'user' && currentTurnHistory[0].parts[0].text.startsWith("My callsign is") ? 'initial' : currentPromptType;
         const systemPromptText = getSystemPrompt(playerCallsign, activePromptType);
-
+    
         if (systemPromptText.startsWith("Error:")) {
             addMessageToLog(systemPromptText, 'system');
             setGMActivity(false);
             return null;
         }
-
-        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent?key=${GEMINI_API_KEY}`;
-
-        let payload = {
-            contents: currentTurnHistory,
-            generationConfig: {
-                temperature: 0.7,
-                topP: 0.95,
-                maxOutputTokens: 8000,
-                responseMimeType: "application/json",
-            },
-            safetySettings: [{
-                    category: "HARM_CATEGORY_HARASSMENT",
-                    threshold: "BLOCK_MEDIUM_AND_ABOVE"
-                },
-                {
-                    category: "HARM_CATEGORY_HATE_SPEECH",
-                    threshold: "BLOCK_MEDIUM_AND_ABOVE"
-                },
-                {
-                    category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-                    threshold: "BLOCK_MEDIUM_AND_ABOVE"
-                },
-                {
-                    category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-                    threshold: "BLOCK_MEDIUM_AND_ABOVE"
-                },
-            ],
-            systemInstruction: {
-                parts: [{
-                    text: systemPromptText
-                }]
-            }
+    
+        // Prepare the systemInstruction part for the payload
+        const systemInstructionPayload = {
+            parts: [{
+                text: systemPromptText
+            }]
         };
-
+    
+        const NETLIFY_FUNCTION_URL = '/.netlify/functions/gemini-proxy'; // Path to your Netlify function
+    
         try {
-            const response = await fetch(API_URL, {
+            // The Netlify function expects currentTurnHistory and systemInstructionPayload in the body
+            const response = await fetch(NETLIFY_FUNCTION_URL, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(payload),
+                body: JSON.stringify({
+                    currentTurnHistory: currentTurnHistory,
+                    systemInstructionPayload: systemInstructionPayload // Send the system instruction
+                }),
             });
-            const responseData = await response.json();
-
+    
+            const responseData = await response.json(); // This is now the response from your Netlify function
+    
             if (!response.ok) {
-                console.error("API Error Response:", responseData);
-                let errDetail = responseData.error?.message || `API Error ${response.status}`;
-                if (responseData.error?.details) {
-                    errDetail += ` Details: ${JSON.stringify(responseData.error.details)}`;
+                console.error("Netlify Function Error or Gemini API Error (via Netlify):", responseData);
+                let errDetail = responseData.error || `Error ${response.status} from proxy.`;
+                if (responseData.details) {
+                    errDetail += ` Details: ${JSON.stringify(responseData.details)}`;
                 }
                 throw new Error(errDetail);
             }
-
+    
+            // The responseData from Netlify function should be the direct response from Gemini
+            // So, we can process it as before
             if (responseData.candidates && responseData.candidates[0]?.content?.parts?.[0]?.text) {
                 let jsonStr = responseData.candidates[0].content.parts[0].text;
                 try {
@@ -932,24 +904,23 @@ document.addEventListener('DOMContentLoaded', () => {
                         typeof parsed.dashboard_updates !== 'object' ||
                         !Array.isArray(parsed.suggested_actions) ||
                         typeof parsed.game_state_indicators !== 'object') {
-                        console.error("Parsed JSON structure is invalid:", parsed);
+                        console.error("Parsed JSON structure from Gemini (via Netlify) is invalid:", parsed);
                         throw new Error("Invalid JSON structure from AI. Missing core fields or game_state_indicators.");
                     }
                     gameHistory.push({
                         role: "model",
                         parts: [{
                             text: JSON.stringify(parsed)
-                        }]
+                        }] // Storing the stringified AI response
                     });
-
+    
                     updateDashboard(parsed.dashboard_updates);
                     displaySuggestedActions(parsed.suggested_actions);
                     handleGameStateIndicators(parsed.game_state_indicators, isInitialGameLoad);
                     if (isInitialGameLoad) {
                         isInitialGameLoad = false;
                     }
-
-
+    
                     const onlineText = (uiLangData[currentAppLanguage]?.system_status_online_short || "System Online");
                     if (systemStatusIndicator) {
                         systemStatusIndicator.textContent = onlineText;
@@ -957,19 +928,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     return parsed.narrative;
                 } catch (e) {
-                    console.error("JSON Parsing Error:", e, "Received String:", jsonStr);
-                    throw new Error(`Invalid JSON from AI: ${e.message}. Ensure AI response is valid JSON.`);
+                    console.error("JSON Parsing Error (from Gemini via Netlify):", e, "Received String:", jsonStr);
+                    throw new Error(`Invalid JSON from AI (via Netlify): ${e.message}.`);
                 }
-            } else if (responseData.promptFeedback?.blockReason) {
-                console.error("Content Blocked by API:", responseData.promptFeedback);
+            } else if (responseData.promptFeedback?.blockReason) { // This structure comes from Gemini
+                console.error("Content Blocked by Gemini API (via Netlify):", responseData.promptFeedback);
                 const blockDetails = responseData.promptFeedback.safetyRatings?.map(r => r.category + ': ' + r.probability).join(', ') || "No specific details.";
-                throw new Error(`Content blocked by API: ${responseData.promptFeedback.blockReason}. Ratings: ${blockDetails}`);
+                throw new Error(`Content blocked by API (via Netlify): ${responseData.promptFeedback.blockReason}. Ratings: ${blockDetails}`);
             } else {
-                console.error("No valid candidate or text in API response:", responseData);
-                throw new Error("No valid candidate or text part in AI response.");
+                console.error("No valid candidate or text in Gemini API response (via Netlify):", responseData);
+                throw new Error("No valid candidate or text part in AI response (via Netlify).");
             }
         } catch (error) {
-            console.error('callGeminiAPI Error:', error);
+            console.error('callGeminiAPI (via Netlify) Error:', error);
             addMessageToLog(`SYSTEM ERROR: ${error.message}`, 'system');
             const errorText = (uiLangData[currentAppLanguage]?.status_error || "Error");
             if (systemStatusIndicator) {
@@ -1247,8 +1218,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const promptsLoaded = await loadAllPrompts();
 
-        if (!GEMINI_API_KEY || GEMINI_API_KEY === "YOUR_GEMINI_API_KEY_HERE" || !promptsLoaded) {
-            const errorMsg = !promptsLoaded ? "CRITICAL: Failed to load game prompts." : "CRITICAL: API Key not configured.";
+        if (!promptsLoaded) {
+            const errorMsg = "CRITICAL: Failed to load game prompts.";
             console.error(errorMsg);
             addMessageToLog(errorMsg, 'system');
             if (systemStatusIndicator) {
@@ -1256,11 +1227,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 systemStatusIndicator.className = 'status-indicator status-danger';
             }
             if (startGameButton) startGameButton.disabled = true;
-            if (playerCallsignInput) playerCallsignInput.disabled = true;
-            if (playerActionInput) playerActionInput.disabled = true;
-            if (sendActionButton) sendActionButton.disabled = true;
-            if (languageToggleButton) languageToggleButton.disabled = true;
-            document.body.classList.remove('initial-state'); // Remove if erroring out, show normal layout
+            // ... (keep other disabling logic if needed)
         } else {
             if (playerCallsignInput) playerCallsignInput.focus();
         }
