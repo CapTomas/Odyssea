@@ -704,7 +704,7 @@ body.initial-state #name-input-section {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: clamp(500px, 70vw, 750px); /* Responsive width */
+    width: clamp(350px, 70vw, 750px); /* Responsive width */
     padding: var(--spacing-xl);
     gap: var(--spacing-lg); /* Space between input and button */
     z-index: 200; /* Ensure it's above other cockpit elements */
