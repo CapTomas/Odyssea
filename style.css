@@ -680,4 +680,106 @@
       margin-left: var(--spacing-sm);
     }
   }
-  
+
+  body.initial-state #story-log-viewport {
+    opacity: 0;
+    transform: translateY(20px) scale(0.98); /* Start slightly down and scaled for animation */
+    pointer-events: none; /* Prevent interaction when hidden */
+    /* It will occupy space as a block, but be invisible. This is fine since name-input is fixed. */
+}
+
+body.initial-state #suggested-actions-wrapper {
+    display: none !important; /* Ensure it's hidden */
+}
+
+/* Hide action input during initial state, name input is shown instead */
+body.initial-state #action-input-section {
+    display: none !important;
+}
+
+/* Styles for the centered name input section */
+body.initial-state #name-input-section {
+    display: flex !important; /* Override JS inline style from normal operation */
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: clamp(500px, 70vw, 750px); /* Responsive width */
+    padding: var(--spacing-xl);
+    gap: var(--spacing-lg); /* Space between input and button */
+    z-index: 200; /* Ensure it's above other cockpit elements */
+}
+
+body.initial-state #name-input-section input[type="text"]#player-name-input {
+    padding: var(--spacing-lg);
+    font-size: var(--font-size-md); /* Larger font for prominence */
+    border-radius: var(--radius-sm); /* Consistent with other inputs */
+    background-color: var(--color-bg-input-field);
+    color: var(--color-text-primary);
+    text-align: center; /* Center placeholder and input text */
+    line-height: var(--line-height-tight); /* Ensure text is vertically centered if padding makes it tall */
+    /* Remove default margin which might be inherited */
+    margin-left: 0; 
+}
+body.initial-state #name-input-section input[type="text"]#player-name-input::placeholder {
+    color: var(--color-text-muted);
+    opacity: 1;
+}
+
+
+body.initial-state #name-input-section button#start-game-button.ui-button.primary {
+    padding-top: var(--spacing-md);
+    padding-bottom: var(--spacing-md);
+    font-size: var(--font-size-base);
+    height: auto; /* Let padding define height */
+    /* margin-left and margin-right are not needed due to align-items: stretch */
+    margin-left: 0;
+    margin-right: 0;
+}
+
+/* Spawn animation for story log viewport */
+#story-log-viewport.spawn-animation {
+    animation: spawnViewportAnimation 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+    opacity: 0; /* Start from opacity 0 for the animation */
+    pointer-events: auto; /* Re-enable interaction */
+}
+
+@keyframes spawnViewportAnimation {
+    from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+
+/* Ensure other console box content transitions smoothly */
+.console-box .console-box-content {
+    /* existing transitions are fine:
+      max-height var(--transition-collapsible-content),
+      opacity var(--transition-collapsible-opacity),
+      padding-top var(--transition-collapsible-content),
+      padding-bottom var(--transition-collapsible-content);
+    */
+    /* Ensure padding transitions correctly when expanding from 0 */
+    padding-top: 0;
+    padding-bottom: 0;
+}
+.console-box.is-expanded .console-box-content {
+    /* existing: max-height: 600px; opacity: 1; */
+    padding-top: var(--spacing-xs); /* Restore padding when expanded */
+    padding-bottom: var(--spacing-lg); /* Restore padding when expanded */
+}
+
+
+/* ... (Rest of your existing CSS) ... */
+
+/* Make sure this is at the end or after relevant #cockpit-layout styles if specific overrides are needed */
+/* For example, ensure sidebars are visible even if center content is initially "empty" */
+body.initial-state #left-console,
+body.initial-state #right-console {
+    opacity: 1; /* Or ensure they are not accidentally hidden */
+}

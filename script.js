@@ -10,15 +10,15 @@ document.addEventListener('DOMContentLoaded', () => {
         combat: 'prompts/combat.txt',
         starts: 'prompts/helpers/starts.txt',
         ship_names_en: 'prompts/helpers/ship_names_en.txt',
-        ship_names_cs: 'prompts/helpers/ship_names_cs.txt' 
+        ship_names_cs: 'prompts/helpers/ship_names_cs.txt'
     };
     let gamePrompts = {
         initial: null,
         default: null,
         combat: null,
         starts: null,
-        ship_names_en: null, 
-        ship_names_cs: null 
+        ship_names_en: null,
+        ship_names_cs: null
     };
     let currentPromptType = 'initial'; // 'initial', 'default', 'combat'
 
@@ -73,6 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Story & Input
     const storyLog = document.getElementById('story-log');
+    const storyLogViewport = document.getElementById('story-log-viewport'); // Added for animation
     const suggestedActionsWrapper = document.getElementById('suggested-actions-wrapper');
     const nameInputSection = document.getElementById('name-input-section');
     const playerCallsignInput = document.getElementById('player-name-input');
@@ -335,15 +336,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const getSystemPrompt = (currentCallsignForPrompt, promptTypeToUse) => {
         const narrativeLanguageInstruction = NARRATIVE_LANG_PROMPT_PARTS[currentNarrativeLanguage] || NARRATIVE_LANG_PROMPT_PARTS[DEFAULT_LANGUAGE];
         let basePromptText = gamePrompts[promptTypeToUse] || gamePrompts.default;
-    
+
         if (!basePromptText || basePromptText.startsWith("Error:")) {
             console.error(`Error: Prompt text for type "${promptTypeToUse}" is invalid or not loaded.`);
             return `{"narrative": "SYSTEM ERROR: Critical prompt data missing. Cannot proceed.", "dashboard_updates": {}, "suggested_actions": ["Contact support."], "game_state_indicators": {"activity_status": "Error", "combat_engaged": false, "comms_channel_active": false}}`;
         }
-    
-        // --- NEW LOGIC FOR INJECTING START IDEAS ---
+
         if (promptTypeToUse === 'initial') {
-            // --- Inject Start Ideas (as before) ---
             if (gamePrompts.starts) {
                 const allStartIdeas = gamePrompts.starts.split('\n').map(idea => idea.trim()).filter(idea => idea.length > 0);
                 let selectedIdeas = [];
@@ -355,15 +354,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 basePromptText = basePromptText.replace(/\$\{startIdea2\}/g, selectedIdeas[1] || "GM Custom Scenario Idea 2");
                 basePromptText = basePromptText.replace(/\$\{startIdea3\}/g, selectedIdeas[2] || "GM Custom Scenario Idea 3");
             }
-    
-            // --- NEW LOGIC FOR INJECTING SHIP NAME IDEAS ---
+
             let shipNameIdeasFileContent = null;
             if (currentNarrativeLanguage === 'cs' && gamePrompts.ship_names_cs) {
                 shipNameIdeasFileContent = gamePrompts.ship_names_cs;
-            } else if (gamePrompts.ship_names_en) { // Default to English if CS not found or lang is EN
+            } else if (gamePrompts.ship_names_en) {
                 shipNameIdeasFileContent = gamePrompts.ship_names_en;
             }
-    
+
             if (shipNameIdeasFileContent) {
                 const allShipNameIdeas = shipNameIdeasFileContent.split('\n').map(name => name.trim()).filter(name => name.length > 0);
                 let selectedShipNames = [];
@@ -371,26 +369,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     const shuffledNames = [...allShipNameIdeas].sort(() => 0.5 - Math.random());
                     selectedShipNames = shuffledNames.slice(0, 3);
                 }
-                basePromptText = basePromptText.replace(/\$\{suggestedShipName1\}/g, selectedShipNames[0] || `InventedNameAlpha`); // Fallback
-                basePromptText = basePromptText.replace(/\$\{suggestedShipName2\}/g, selectedShipNames[1] || `InventedNameBeta`);  // Fallback
-                basePromptText = basePromptText.replace(/\$\{suggestedShipName3\}/g, selectedShipNames[2] || `InventedNameGamma`); // Fallback
+                basePromptText = basePromptText.replace(/\$\{suggestedShipName1\}/g, selectedShipNames[0] || `InventedNameAlpha`);
+                basePromptText = basePromptText.replace(/\$\{suggestedShipName2\}/g, selectedShipNames[1] || `InventedNameBeta`);
+                basePromptText = basePromptText.replace(/\$\{suggestedShipName3\}/g, selectedShipNames[2] || `InventedNameGamma`);
             } else {
-                // Fallback if no ship name files are loaded
                 basePromptText = basePromptText.replace(/\$\{suggestedShipName1\}/g, `DefaultName1`);
                 basePromptText = basePromptText.replace(/\$\{suggestedShipName2\}/g, `DefaultName2`);
                 basePromptText = basePromptText.replace(/\$\{suggestedShipName3\}/g, `DefaultName3`);
             }
-            // --- END OF NEW SHIP NAME LOGIC ---
         }
-    
-        // Replace other placeholders (as before)
+
         basePromptText = basePromptText.replace(/\$\{narrativeLanguageInstruction\}/g, narrativeLanguageInstruction);
         basePromptText = basePromptText.replace(/\$\{currentCallsignForPrompt\}/g, currentCallsignForPrompt || 'UNKNOWN_CAPTAIN');
         basePromptText = basePromptText.replace(/\$\{currentNarrativeLanguage\.toUpperCase\(\)\}/g, currentNarrativeLanguage.toUpperCase());
-        // Add this line if it's not already there for the example in shipName field
         basePromptText = basePromptText.replace(/\$\{currentNarrativeLanguage\.toUpperCase\(\) === 'EN' \? "'Online' or 'Offline'" : "'Připojeno' or 'Odpojeno'"\}/g, currentNarrativeLanguage.toUpperCase() === 'EN' ? "'Online' or 'Offline'" : "'Připojeno' or 'Odpojeno'");
-    
-    
+
+
         return basePromptText;
     };
 
@@ -527,8 +521,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (finalPct === 0 && finalStatusTextPart !== offlineText) {
                     finalStatusTextPart = offlineText;
                 } else if (finalPct > 0 && finalStatusTextPart === offlineText) {
-                     // Only switch from "Offline" to "Online" if percentage is now positive.
-                    // This avoids overriding specific statuses like "Fluctuating" if they were already set.
                     if (textEl && textEl.textContent.toLowerCase().startsWith(offlineText.toLowerCase())) {
                         finalStatusTextPart = onlineText;
                     }
@@ -607,12 +599,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (highlight) highlightElementUpdate(el);
                     }
                 } else if (currentVal === '' || currentVal === initialPlaceholder || currentVal === defaultValue) {
-                    // el.textContent = defaultValue; // Only set if it's truly an initial setup or explicit reset
+                    // el.textContent = defaultValue;
                 }
             }
         };
 
-        // Player
         setText(infoPlayerCallsign, updates.callsign, {
             initialPlaceholder: unknown
         });
@@ -627,7 +618,6 @@ document.addEventListener('DOMContentLoaded', () => {
             initialPlaceholder: unknown
         });
 
-        // Player Ship
         setText(infoShipName, updates.shipName, {
             initialPlaceholder: unknown
         });
@@ -652,12 +642,10 @@ document.addEventListener('DOMContentLoaded', () => {
             initialPlaceholder: `0 m/s`
         });
 
-        // Comms
         setText(infoCommsChannelStatus, updates.comms_channel_info, {
             initialPlaceholder: unknown
         });
 
-        // Mission
         setText(infoObjective, updates.objective, {
             initialPlaceholder: unknown
         });
@@ -668,7 +656,6 @@ document.addEventListener('DOMContentLoaded', () => {
             initialPlaceholder: unknown
         });
 
-        // Alert Level
         if (infoAlertLevel) {
             const currentAlertTextContent = infoAlertLevel.textContent;
             const currentAlertClasses = infoAlertLevel.className;
@@ -703,7 +690,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Navigation
         setText(infoLocation, updates.location, {
             initialPlaceholder: unknown
         });
@@ -720,7 +706,6 @@ document.addEventListener('DOMContentLoaded', () => {
             initialPlaceholder: unknown
         });
 
-        // Enemy Intel
         setText(infoEnemyShipType, updates.enemy_ship_type, {
             initialPlaceholder: unknown,
             highlight: enemyIntelConsoleBox.style.display !== 'none'
@@ -1004,10 +989,21 @@ document.addEventListener('DOMContentLoaded', () => {
             if (playerCallsignInput) playerCallsignInput.focus();
             return;
         }
-        isInitialGameLoad = true;
+
+        // Transition from initial state
+        document.body.classList.remove('initial-state');
 
         if (nameInputSection) nameInputSection.style.display = 'none';
         if (actionInputSection) actionInputSection.style.display = 'flex';
+
+        // Animate story log viewport appearance
+        if (storyLogViewport) {
+            storyLogViewport.classList.add('spawn-animation');
+        }
+        // suggestedActionsWrapper will become visible automatically as its display:none rule from .initial-state is removed.
+
+        isInitialGameLoad = true;
+
         if (playerActionInput) {
             playerActionInput.value = '';
             playerActionInput.dispatchEvent(new Event('input', {
@@ -1032,10 +1028,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const narrative = await callGeminiAPI(gameHistory);
         if (narrative) {
             addMessageToLog(narrative, 'gm');
-            triggerCockpitBootAnimation();
+            triggerCockpitBootAnimation(); // Animates Ship Status & Nav Data
         } else {
-            if (nameInputSection) nameInputSection.style.display = 'flex';
+            // Revert to initial state appearance if game start fails
+            document.body.classList.add('initial-state');
+            if (nameInputSection) nameInputSection.style.display = 'flex'; // Or its initial display type
             if (actionInputSection) actionInputSection.style.display = 'none';
+            if (storyLogViewport) storyLogViewport.classList.remove('spawn-animation');
+
             addMessageToLog("Failed to initialize session. Please check console and try again.", 'system');
             isInitialGameLoad = false;
         }
@@ -1083,11 +1083,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (infoShipName) infoShipName.textContent = unknown;
         if (infoShipType) infoShipType.textContent = unknown;
 
-        // Use setMeter for consistent initialization and placeholder handling
         setMeter(meterShipIntegrity, infoShipIntegrity, '0', 'integrity', { initialPlaceholder: '0%' });
         setMeter(meterShipShields, infoShipShields, '0', 'shields', { newStatusText: onlineText, initialPlaceholder: `${onlineText}: 0%` });
         setMeter(meterShipFuel, infoShipFuel, '0', 'fuel', { initialPlaceholder: '0%' });
-        
+
         if (infoShipCargo) infoShipCargo.textContent = `${na}/${na} SCU`;
         if (infoShipSpeed) infoShipSpeed.textContent = `0 m/s`;
 
@@ -1108,7 +1107,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (infoSensorConditions) infoSensorConditions.textContent = unknown;
         if (infoStardate) infoStardate.textContent = unknown;
 
-        // Use setMeter for enemy intel initialization
         if (infoEnemyShipType) infoEnemyShipType.textContent = unknown;
         setMeter(meterEnemyShields, infoEnemyShieldsStatus, '0', 'enemy_shields', { newStatusText: offlineText, initialPlaceholder: `${offlineText}: 0%` });
         setMeter(meterEnemyHull, infoEnemyHullIntegrity, '100', 'enemy_hull', { initialPlaceholder: '100%' });
@@ -1136,22 +1134,12 @@ document.addEventListener('DOMContentLoaded', () => {
         textarea.style.height = newHeight + 'px';
     }
 
-    const consoleBoxAnimationConfig = [{
-            id: 'ship-status-console-box',
-            delay: 1200
-        },
-        {
-            id: 'navigation-data-console-box',
-            delay: 1200
-        },
-        {
-            id: 'captain-status-console-box',
-            delay: 300
-        },
-        {
-            id: 'mission-intel-console-box',
-            delay: 300
-        }
+    // MODIFIED: consoleBoxAnimationConfig - Captain and Mission removed, they are opened by default.
+    const consoleBoxAnimationConfig = [
+        { id: 'ship-status-console-box', delay: 1200 },
+        { id: 'navigation-data-console-box', delay: 1200 }
+        // Removed: captain-status-console-box and mission-intel-console-box
+        // These will be opened by default in initializeCollapsibleConsoleBoxes
     ];
 
     function animateConsoleBox(boxId, shouldExpand) {
@@ -1166,7 +1154,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (shouldExpand && box.style.display === 'none') {
-            box.style.display = 'block';
+            box.style.display = 'block'; // Changed to 'block' as a general default
         }
 
         requestAnimationFrame(() => {
@@ -1193,6 +1181,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // MODIFIED: initializeCollapsibleConsoleBoxes - to handle default expanded states
     function initializeCollapsibleConsoleBoxes() {
         const consoleBoxes = document.querySelectorAll('.console-box.collapsible');
         consoleBoxes.forEach(box => {
@@ -1200,34 +1189,39 @@ document.addEventListener('DOMContentLoaded', () => {
             const content = box.querySelector('.console-box-content');
 
             if (header && content) {
-                const isStandardBootConsole = consoleBoxAnimationConfig.some(c => c.id === box.id);
+                const isAlwaysOpenConsole = box.id === 'captain-status-console-box' || box.id === 'mission-intel-console-box';
+                const isStandardBootAnimationConsole = consoleBoxAnimationConfig.some(c => c.id === box.id);
                 const isConditionalConsole = box.id === 'comms-channel-console-box' || box.id === 'enemy-intel-console-box';
 
-                if (isStandardBootConsole) {
+                if (isAlwaysOpenConsole) {
+                    // These are open by default, even before game starts.
+                    box.style.display = 'block'; // Ensure visibility
+                    animateConsoleBox(box.id, true); // Expand them (CSS handles the animation)
+                } else if (isStandardBootAnimationConsole) {
+                    // These are part of the startGame boot animation (e.g., Ship Status, Nav Data)
+                    // They start visible but collapsed. triggerCockpitBootAnimation will expand them.
                     box.style.display = 'block';
                     header.setAttribute('aria-expanded', 'false');
                     content.setAttribute('aria-hidden', 'true');
+                    box.classList.remove('is-expanded'); // Ensure it starts collapsed
                 } else if (isConditionalConsole) {
-                    box.style.display = 'none';
+                    // These appear based on game state (Comms, Enemy Intel)
+                    box.style.display = 'none'; // Initially hidden
                     header.setAttribute('aria-expanded', 'false');
                     content.setAttribute('aria-hidden', 'true');
                     box.classList.remove('is-expanded');
-                } else {
-                    box.style.display = 'block';
-                    box.classList.add('is-expanded');
-                    header.setAttribute('aria-expanded', 'true');
-                    content.setAttribute('aria-hidden', 'false');
                 }
+                // No 'else' needed here, assuming all collapsibles are covered.
 
-
+                // Standard click/keydown listeners for toggling
                 header.addEventListener('click', () => {
-                    if (box.style.display !== 'none') {
+                    if (box.style.display !== 'none') { // Only toggle if visible
                         const isNowExpanded = !box.classList.contains('is-expanded');
                         animateConsoleBox(box.id, isNowExpanded);
                     }
                 });
 
-                header.setAttribute('tabindex', '0');
+                header.setAttribute('tabindex', '0'); // For accessibility
                 header.addEventListener('keydown', (e) => {
                     if ((e.key === 'Enter' || e.key === ' ') && box.style.display !== 'none') {
                         e.preventDefault();
@@ -1239,7 +1233,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+
     async function initializeApp() {
+        // Add initial state class to body for CSS targeting
+        document.body.classList.add('initial-state');
+
         setAppLanguage(currentAppLanguage); // This also calls initializeDashboardDefaultTexts
 
         if (systemStatusIndicator) {
@@ -1262,12 +1260,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (playerActionInput) playerActionInput.disabled = true;
             if (sendActionButton) sendActionButton.disabled = true;
             if (languageToggleButton) languageToggleButton.disabled = true;
+            document.body.classList.remove('initial-state'); // Remove if erroring out, show normal layout
         } else {
             if (playerCallsignInput) playerCallsignInput.focus();
         }
 
         clearSuggestedActions();
-        initializeCollapsibleConsoleBoxes();
+        initializeCollapsibleConsoleBoxes(); // This will now handle default expanded consoles
         if (playerActionInput) {
             autoGrowTextarea(playerActionInput);
         }
