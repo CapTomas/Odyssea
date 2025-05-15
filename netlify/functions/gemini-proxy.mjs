@@ -9,8 +9,6 @@ const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY_NETLIFY; // Will come from Netlify environment variables
 
 export async function handler(event, context) {
-    console.log(`[gemini-proxy] Function invoked. RequestId: ${context.awsRequestId}`); // Log invocation
-
     if (event.httpMethod !== 'POST') {
         return {
             statusCode: 405,
@@ -19,7 +17,7 @@ export async function handler(event, context) {
     }
 
     if (!GEMINI_API_KEY || GEMINI_API_KEY === "YOUR_GEMINI_API_KEY_PLACEHOLDER") {
-        console.error("[gemini-proxy] Gemini API Key not configured.");
+        console.error("Gemini API Key not configured in Netlify environment variables.");
         return {
             statusCode: 500,
             body: JSON.stringify({ error: 'API Key not configured on the server.' }),
@@ -27,12 +25,9 @@ export async function handler(event, context) {
     }
 
     try {
-        console.log("[gemini-proxy] Parsing event body...");
         const { currentTurnHistory, systemInstructionPayload } = JSON.parse(event.body);
-        console.log("[gemini-proxy] Event body parsed.");
 
         if (!currentTurnHistory || !systemInstructionPayload) {
-            console.error("[gemini-proxy] Missing currentTurnHistory or systemInstructionPayload.");
              return {
                 statusCode: 400,
                 body: JSON.stringify({ error: 'Missing currentTurnHistory or systemInstructionPayload in request body' }),
@@ -57,17 +52,14 @@ export async function handler(event, context) {
             ],
             systemInstruction: systemInstructionPayload // Use the systemInstruction from the client
         };
-        console.log("[gemini-proxy] Making fetch call to Gemini API:", API_URL_GEMINI);
-        const startTime = Date.now(); // For timing
 
         const apiResponse = await fetch(API_URL_GEMINI, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+            },
             body: JSON.stringify(payload),
         });
-
-        const duration = Date.now() - startTime;
-        console.log(`[gemini-proxy] Gemini API call completed in ${duration}ms. Status: ${apiResponse.status}`);
 
         const responseData = await apiResponse.json();
 
@@ -87,8 +79,7 @@ export async function handler(event, context) {
         };
 
     } catch (error) {
-        console.error('[gemini-proxy] Error in Netlify function:', error);
-
+        console.error('Error in Netlify function:', error);
         return {
             statusCode: 500,
             body: JSON.stringify({ error: 'Internal Server Error in Netlify function.', details: error.message }),
