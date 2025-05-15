@@ -66,7 +66,7 @@
     --shadow-console-box: 0px 2px 8px rgba(0, 0, 0, 0.2);
     --shadow-input-area: 0px -2px 5px rgba(0, 0, 0, 0.15);
     --shadow-focus-ring: 0 0 0 2px var(--color-text-accent-interactive);
-    --highlight-bg-value-update: rgba(var(--color-accent-light-gray-rgb), 0.08);
+    --highlight-bg-value-update: rgba(var(--color-accent-light-gray-rgb), 0.02);
   
     --spacing-unit: 4px;
     --spacing-xs: var(--spacing-unit);
@@ -81,7 +81,7 @@
     --radius-sm: 10px;
     --radius-md: 20px;
     --sidebar-width: 280px;
-    --top-bar-height: 50px;
+    --top-bar-height: 60px;
     --bottom-bar-height: 28px;
     --input-panel-height: auto;
     --input-button-size: 32px;
@@ -192,9 +192,9 @@
     display: flex;
     flex-grow: 1;
     overflow: hidden;
-    padding: var(--spacing-lg);
+    padding: 0 var(--spacing-lg) var(--spacing-lg) var(--spacing-lg);
     gap: var(--spacing-lg);
-    background-color: var(--color-bg-viewport);
+    background-color: var(--color-bg-console-box);
   }
   .console-sidebar {
     width: var(--sidebar-width);
@@ -207,11 +207,9 @@
     padding-bottom: var(--spacing-xs);
   }
   .console-box {
-    background-color: var(--color-bg-console-box);
+    background-color: var( --color-bg-viewport);
     border-radius: var(--radius-md);
-    border: 1px solid rgba(255, 255, 255, 0.03);
     overflow: hidden;
-    /* display: none; Temporarily remove for initial setup, JS will handle */
   }
   /* Initially hide special consoles, JS will manage their appearance and 'is-expanded' state */
   #comms-channel-console-box,
@@ -320,7 +318,7 @@
     flex-grow: 1;
     display: flex;
     flex-direction: column;
-    background-color: var(--color-bg-viewport);
+    background-color: var(--color-bg-console-box);
     overflow: hidden;
   }
   
@@ -328,6 +326,8 @@
     flex-grow: 1;
     overflow-y: auto;
     padding: var(--spacing-xl);
+    border-radius: var(--radius-md);
+    background-color: var(--color-bg-viewport);
   }
   
   #story-log .message {
@@ -384,11 +384,9 @@
     flex-shrink: 0;
     max-height: 100px;
     overflow-y: auto;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
-    background-color: var(--color-bg-viewport);
   }
   #player-input-control-panel {
-    padding: var(--spacing-md);
+    padding: var(--spacing-xs);
     flex-shrink: 0;
   }
   
