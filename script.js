@@ -9,7 +9,11 @@ document.addEventListener('DOMContentLoaded', () => {
         default: 'prompts/default.txt',
         combat: 'prompts/combat.txt'
     };
-    let gamePrompts = { initial: null, default: null, combat: null };
+    let gamePrompts = {
+        initial: null,
+        default: null,
+        combat: null
+    };
     let currentPromptType = 'initial'; // 'initial', 'default', 'combat'
 
     // UI Elements
@@ -75,71 +79,138 @@ document.addEventListener('DOMContentLoaded', () => {
     let playerCallsign = '';
     let currentAppLanguage = localStorage.getItem('preferredAppLanguage') || DEFAULT_LANGUAGE;
     let currentNarrativeLanguage = localStorage.getItem('preferredNarrativeLanguage') || DEFAULT_LANGUAGE;
+    let isInitialGameLoad = false;
 
     const uiLangData = {
         en: {
-            "toggle_language": "English", "aria_label_toggle_language": "Switch to English",
-            "system_status_online_short": "Core Systems Online", "system_processing_short": "Running Calculations...",
+            "toggle_language": "English",
+            "aria_label_toggle_language": "Switch to English",
+            "system_status_online_short": "Core Systems Online",
+            "system_processing_short": "Running Calculations...",
             "title_captain_status": "Captain's Log",
-            "label_player_callsign": "Captain's name:", "label_player_credits": "Credit Balance:",
-            "label_player_reputation": "Galactic Standing:", "label_player_affiliation": "Allegiance:",
+            "label_player_callsign": "Captain's name:",
+            "label_player_credits": "Credit Balance:",
+            "label_player_reputation": "Galactic Standing:",
+            "label_player_affiliation": "Allegiance:",
             "title_ship_status": "Ship Diagnostics",
-            "label_ship_name": "Ship Registry:", "label_ship_type": "Vessel Class:",
-            "label_ship_integrity": "Hull Status:", "label_ship_shields": "Shield Strength:",
-            "label_ship_fuel": "Fuel Reserves:", "label_ship_cargo": "Cargo Hold:", "label_ship_speed": "Cruising Velocity:",
-            "title_comms_channel": "Comms Channel", "label_comms_status": "Channel Status:",
+            "label_ship_name": "Ship Registry:",
+            "label_ship_type": "Vessel Class:",
+            "label_ship_integrity": "Hull Status:",
+            "label_ship_shields": "Shield Strength:",
+            "label_ship_fuel": "Fuel Reserves:",
+            "label_ship_cargo": "Cargo Hold:",
+            "label_ship_speed": "Cruising Velocity:",
+            "title_comms_channel": "Comms Channel",
+            "label_comms_status": "Channel Status:",
             "title_active_directive": "Current Directive",
-            "label_directive_details": "Mission Briefing:", "label_directive_reward": "Reward Estimate:",
-            "label_directive_status": "Current Status:", "label_alert_level": "Alert Status:",
+            "label_directive_details": "Mission Briefing:",
+            "label_directive_reward": "Reward Estimate:",
+            "label_directive_status": "Current Status:",
+            "label_alert_level": "Alert Status:",
             "title_navigation_data": "Navigation Console",
-            "label_current_location": "Coordinates:", "label_system_faction": "Sector Authority:",
-            "label_environment": "Environment:", "label_sensor_conditions": "Sensor Conditions:", "label_stardate": "Stardate:",
+            "label_current_location": "Coordinates:",
+            "label_system_faction": "Sector Authority:",
+            "label_environment": "Environment:",
+            "label_sensor_conditions": "Sensor Conditions:",
+            "label_stardate": "Stardate:",
             "title_enemy_intel": "Enemy Vessel Intel",
-            "label_enemy_ship_type": "Enemy Type:", "label_enemy_shields": "Enemy Shields:", "label_enemy_hull": "Enemy Hull:",
+            "label_enemy_ship_type": "Enemy Type:",
+            "label_enemy_shields": "Enemy Shields:",
+            "label_enemy_hull": "Enemy Hull:",
             "placeholder_callsign_login": "Enter your name to access ship systems...",
             "placeholder_command": "Enter command or open channel...",
-            "button_access_systems": "Connect", "button_execute_command": "Transmit",
-            "status_ok": "Operational", "status_warning": "Caution", "status_danger": "Critical", "status_error": "System Fault",
-            "unknown": "Unknown", "standby": "Core Systems Online", "online": "Online", "offline": "Offline", "none": "None",
-            "not_available_short": "N/A", "initializing": "Booting Ship Systems...", "connecting": "Linking as",
-            "active": "Engaged", "failed": "Failure",
+            "button_access_systems": "Connect",
+            "button_execute_command": "Transmit",
+            "status_ok": "Operational",
+            "status_warning": "Caution",
+            "status_danger": "Critical",
+            "status_error": "System Fault",
+            "unknown": "Unknown",
+            "standby": "Core Systems Online",
+            "online": "Online",
+            "offline": "Offline",
+            "none": "None",
+            "not_available_short": "N/A",
+            "initializing": "Booting Ship Systems...",
+            "connecting": "Linking as",
+            "active": "Engaged",
+            "failed": "Failure",
             "system_lang_set_en": "System: Interface and narrative set to ENGLISH.",
             "system_lang_set_cs": "System: Interface and narrative set to CZECH.",
-            "placeholder_enter_callsign": "Input name to initialize systems...", "button_engage_systems": "Power Up Systems",
-            "alert_level_green": "Green", "alert_level_yellow": "Yellow", "alert_level_red": "Red", "alert_level_info": "Status",
-            "activity_exploring": "Exploring", "activity_fighting": "Fighting", "activity_communicating": "Communicating", // Add more as needed
+            "placeholder_enter_callsign": "Input name to initialize systems...",
+            "button_engage_systems": "Power Up Systems",
+            "alert_level_green": "Green",
+            "alert_level_yellow": "Yellow",
+            "alert_level_red": "Red",
+            "alert_level_info": "Status",
+            "activity_exploring": "Exploring",
+            "activity_fighting": "Fighting",
+            "activity_communicating": "Communicating", // Add more as needed
         },
         cs: {
-            "toggle_language": "Česky", "aria_label_toggle_language": "Přepnout do Češtiny",
-            "system_status_online_short": "Základní systémy online", "system_processing_short": "Probíhá výpočet...",
+            "toggle_language": "Česky",
+            "aria_label_toggle_language": "Přepnout do Češtiny",
+            "system_status_online_short": "Základní systémy online",
+            "system_processing_short": "Probíhá výpočet...",
             "title_captain_status": "Kapitánský Záznam",
-            "label_player_callsign": "Jméno Kapitána:", "label_player_credits": "Kreditní Zůstatek:",
-            "label_player_reputation": "Pověst ve Vesmíru:", "label_player_affiliation": "Příslušnost:",
+            "label_player_callsign": "Jméno Kapitána:",
+            "label_player_credits": "Kreditní Zůstatek:",
+            "label_player_reputation": "Pověst ve Vesmíru:",
+            "label_player_affiliation": "Příslušnost:",
             "title_ship_status": "Diagnostika Lodi",
-            "label_ship_name": "Registrace Lodi:", "label_ship_type": "Třída Plavidla:",
-            "label_ship_integrity": "Stav Trupu:", "label_ship_shields": "Síla Štítů:",
-            "label_ship_fuel": "Zásoby Paliva:", "label_ship_cargo": "Nákladový Prostor:", "label_ship_speed": "Letová Rychlost:",
-            "title_comms_channel": "Komunikační Kanál", "label_comms_status": "Stav Kanálu:",
+            "label_ship_name": "Registrace Lodi:",
+            "label_ship_type": "Třída Plavidla:",
+            "label_ship_integrity": "Stav Trupu:",
+            "label_ship_shields": "Síla Štítů:",
+            "label_ship_fuel": "Zásoby Paliva:",
+            "label_ship_cargo": "Nákladový Prostor:",
+            "label_ship_speed": "Letová Rychlost:",
+            "title_comms_channel": "Komunikační Kanál",
+            "label_comms_status": "Stav Kanálu:",
             "title_active_directive": "Aktuální Mise",
-            "label_directive_details": "Brífink Mise:", "label_directive_reward": "Odhadovaná Odměna:",
-            "label_directive_status": "Aktuální Stav:", "label_alert_level": "Stav Poplachu:",
+            "label_directive_details": "Brífink Mise:",
+            "label_directive_reward": "Odhadovaná Odměna:",
+            "label_directive_status": "Aktuální Stav:",
+            "label_alert_level": "Stav Poplachu:",
             "title_navigation_data": "Navigační Konzole",
-            "label_current_location": "Souřadnice:", "label_system_faction": "Autorita Sektoru:",
-            "label_environment": "Prostředí:", "label_sensor_conditions": "Stav Senzorů:", "label_stardate": "Hvězdné Datum:",
+            "label_current_location": "Souřadnice:",
+            "label_system_faction": "Autorita Sektoru:",
+            "label_environment": "Prostředí:",
+            "label_sensor_conditions": "Stav Senzorů:",
+            "label_stardate": "Hvězdné Datum:",
             "title_enemy_intel": "Informace o Nepřátelském Plavidle",
-            "label_enemy_ship_type": "Typ Nepřítele:", "label_enemy_shields": "Nepřátelské Štíty:", "label_enemy_hull": "Nepřátelský Trup:",
+            "label_enemy_ship_type": "Typ Nepřítele:",
+            "label_enemy_shields": "Nepřátelské Štíty:",
+            "label_enemy_hull": "Nepřátelský Trup:",
             "placeholder_callsign_login": "Zadejte své jméno pro přístup k lodním systémům...",
             "placeholder_command": "Zadejte příkaz nebo otevřete komunikaci...",
-            "button_access_systems": "Připojit", "button_execute_command": "Odeslat",
-            "status_ok": "V Provozun", "status_warning": "Pozor", "status_danger": "Kritické", "status_error": "Systémová Chyba",
-            "unknown": "Neznámý", "standby": "Základní systémy online", "online": "Online", "offline": "Offline", "none": "Žádný",
-            "not_available_short": "N/A", "initializing": "Spouštím lodní systémy...", "connecting": "Připojuji jako",
-            "active": "Aktivní", "failed": "Selhalo",
+            "button_access_systems": "Připojit",
+            "button_execute_command": "Odeslat",
+            "status_ok": "V Provozun",
+            "status_warning": "Pozor",
+            "status_danger": "Kritické",
+            "status_error": "Systémová Chyba",
+            "unknown": "Neznámý",
+            "standby": "Základní systémy online",
+            "online": "Online",
+            "offline": "Offline",
+            "none": "Žádný",
+            "not_available_short": "N/A",
+            "initializing": "Spouštím lodní systémy...",
+            "connecting": "Připojuji jako",
+            "active": "Aktivní",
+            "failed": "Selhalo",
             "system_lang_set_en": "Systém: Rozhraní a vyprávění nastaveno na ANGLIČTINU.",
             "system_lang_set_cs": "Systém: Rozhraní a vyprávění nastaveno na ČEŠTINU.",
-            "placeholder_enter_callsign": "Zadejte jméno pro spuštění systémů...", "button_engage_systems": "Spustit Systémy",
-            "alert_level_green": "Zelená", "alert_level_yellow": "Žlutá", "alert_level_red": "Červená", "alert_level_info": "Stav",
-            "activity_exploring": "Průzkum", "activity_fighting": "Boj", "activity_communicating": "Komunikace", // Add more as needed
+            "placeholder_enter_callsign": "Zadejte jméno pro spuštění systémů...",
+            "button_engage_systems": "Spustit Systémy",
+            "alert_level_green": "Zelená",
+            "alert_level_yellow": "Žlutá",
+            "alert_level_red": "Červená",
+            "alert_level_info": "Stav",
+            "activity_exploring": "Průzkum",
+            "activity_fighting": "Boj",
+            "activity_communicating": "Komunikace", // Add more as needed
         }
     };
     const NARRATIVE_LANG_PROMPT_PARTS = {
@@ -206,17 +277,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const key = el.getAttribute('data-lang-key');
             if (uiLangData[lang] && uiLangData[lang][key]) {
                 if ((el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA')) {
-                     if (!el.classList.contains('console-box-title') || el.tagName.toLowerCase() === 'h3') {
+                    if (!el.classList.contains('console-box-title') || el.tagName.toLowerCase() === 'h3') {
                         el.textContent = uiLangData[lang][key];
                     }
                 }
             }
         });
         document.querySelectorAll('.console-box-title[data-lang-key]').forEach(el => {
-             const key = el.getAttribute('data-lang-key');
-             if (uiLangData[lang] && uiLangData[lang][key]) {
+            const key = el.getAttribute('data-lang-key');
+            if (uiLangData[lang] && uiLangData[lang][key]) {
                 el.textContent = uiLangData[lang][key];
-             }
+            }
         });
 
 
@@ -256,7 +327,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let systemMessage = uiLangData[newLang]?.[systemMessageKey] || `System: UI & Narrative language set to ${newLang.toUpperCase()}.`;
         addMessageToLog(systemMessage, 'system');
     }
-    
+
     const getSystemPrompt = (currentCallsignForPrompt, promptTypeToUse) => {
         const narrativeLanguageInstruction = NARRATIVE_LANG_PROMPT_PARTS[currentNarrativeLanguage] || NARRATIVE_LANG_PROMPT_PARTS[DEFAULT_LANGUAGE];
         let basePromptText = gamePrompts[promptTypeToUse] || gamePrompts.default; // Fallback to default
@@ -266,12 +337,12 @@ document.addEventListener('DOMContentLoaded', () => {
             // Return a very basic error prompt to avoid crashing Gemini call
             return `{"narrative": "SYSTEM ERROR: Critical prompt data missing. Cannot proceed.", "dashboard_updates": {}, "suggested_actions": ["Contact support."], "game_state_indicators": {"activity_status": "Error", "combat_engaged": false, "comms_channel_active": false}}`;
         }
-        
+
         // Replace placeholders
         basePromptText = basePromptText.replace(/\$\{narrativeLanguageInstruction\}/g, narrativeLanguageInstruction);
         basePromptText = basePromptText.replace(/\$\{currentCallsignForPrompt\}/g, currentCallsignForPrompt || 'UNKNOWN_CAPTAIN');
         basePromptText = basePromptText.replace(/\$\{currentNarrativeLanguage\.toUpperCase\(\)\}/g, currentNarrativeLanguage.toUpperCase());
-        
+
         return basePromptText;
     };
 
@@ -334,7 +405,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const naShort = uiLangData[currentAppLanguage]?.not_available_short || 'N/A';
 
         const setText = (el, value, options = {}) => {
-            const { suffix = '', defaultValue = unknown, highlight = true, initialPlaceholder = unknown } = options;
+            const {
+                suffix = '', defaultValue = unknown, highlight = true, initialPlaceholder = unknown
+            } = options;
             if (el) {
                 const currentVal = el.textContent;
                 if (value !== undefined && value !== null) {
@@ -350,25 +423,27 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         const setMeter = (barEl, textEl, valuePctStr, meterType, options = {}) => {
-            const { highlight = true, onlineStatusText, initialPlaceholder } = options;
+            const {
+                highlight = true, onlineStatusText, initialPlaceholder
+            } = options;
             let valuePct = parseInt(valuePctStr, 10);
 
             if (isNaN(valuePct) && valuePctStr !== undefined && valuePctStr !== null) { // If valuePctStr is not a number but defined (e.g. "---")
                 if (textEl) {
-                     if (textEl.textContent !== valuePctStr) {
+                    if (textEl.textContent !== valuePctStr) {
                         textEl.textContent = valuePctStr;
                         if (highlight) highlightElementUpdate(textEl);
-                     }
+                    }
                 }
                 if (barEl) {
                     if (barEl.style.width !== '0%') {
-                         barEl.style.width = '0%';
-                         if (highlight && (!textEl || textEl.textContent === valuePctStr)) highlightElementUpdate(textEl || barEl.parentElement);
+                        barEl.style.width = '0%';
+                        if (highlight && (!textEl || textEl.textContent === valuePctStr)) highlightElementUpdate(textEl || barEl.parentElement);
                     }
                 }
                 return;
             }
-            
+
             valuePct = isNaN(valuePct) ? (meterType === 'shields' || meterType === 'enemy_shields' ? 0 : 100) : valuePct; // Default to 0 for shields if NaN, 100 for others
             valuePct = Math.max(0, Math.min(100, valuePct));
 
@@ -380,7 +455,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (meterType === 'shields' || meterType === 'enemy_shields') {
                 const statusToDisplay = onlineStatusText || (valuePct > 0 ? (uiLangData[currentAppLanguage]?.online || 'Online') : (uiLangData[currentAppLanguage]?.offline || 'Offline'));
                 newTextContent = `${statusToDisplay}: ${valuePct}%`;
-                
+
                 newBarColor = 'var(--color-status-info-bar)'; // Default blue for shields
                 if (statusToDisplay.toLowerCase() === (uiLangData[currentAppLanguage]?.offline || 'offline').toLowerCase()) {
                     newBarColor = 'var(--color-status-offline-bar)';
@@ -417,40 +492,67 @@ document.addEventListener('DOMContentLoaded', () => {
                     barStyleChanged = true;
                 }
                 if (barStyleChanged && highlight && textEl && textEl.textContent === newTextContent) {
-                     // If only bar changed but text was same, still highlight the text element container
+                    // If only bar changed but text was same, still highlight the text element container
                     highlightElementUpdate(textEl);
                 }
             }
         };
-        
+
         // Player
-        setText(infoPlayerCallsign, updates.callsign, { initialPlaceholder: unknown });
+        setText(infoPlayerCallsign, updates.callsign, {
+            initialPlaceholder: unknown
+        });
         setText(infoPlayerCredits, updates.credits, {
             suffix: (updates.credits && typeof updates.credits === 'string' && !/[a-zA-Z]/.test(updates.credits.trim()) && !updates.credits.toLowerCase().includes('uec')) ? ' UEC' : '',
             initialPlaceholder: `${unknown} UEC`
         });
-        setText(infoPlayerReputation, updates.reputation, { initialPlaceholder: unknown });
-        setText(infoPlayerAffiliation, updates.affiliation, { initialPlaceholder: unknown });
+        setText(infoPlayerReputation, updates.reputation, {
+            initialPlaceholder: unknown
+        });
+        setText(infoPlayerAffiliation, updates.affiliation, {
+            initialPlaceholder: unknown
+        });
 
         // Player Ship
-        setText(infoShipName, updates.shipName, { initialPlaceholder: unknown });
-        setText(infoShipType, updates.shipType, { initialPlaceholder: unknown });
-        setMeter(meterShipIntegrity, infoShipIntegrity, updates.integrityPct, 'integrity', { initialPlaceholder: '100%' });
-        setMeter(meterShipShields, infoShipShields, updates.shieldsPct, 'shields', { onlineStatusText: updates.shieldsStatus, initialPlaceholder: `${uiLangData[currentAppLanguage]?.online || 'Online'}: 100%` });
-        setMeter(meterShipFuel, infoShipFuel, updates.fuelPct, 'fuel', { initialPlaceholder: '100%' });
-        setText(infoShipCargo, updates.cargo, { initialPlaceholder: `${naShort}/${naShort} SCU` });
+        setText(infoShipName, updates.shipName, {
+            initialPlaceholder: unknown
+        });
+        setText(infoShipType, updates.shipType, {
+            initialPlaceholder: unknown
+        });
+        setMeter(meterShipIntegrity, infoShipIntegrity, updates.integrityPct, 'integrity', {
+            initialPlaceholder: '100%'
+        });
+        setMeter(meterShipShields, infoShipShields, updates.shieldsPct, 'shields', {
+            onlineStatusText: updates.shieldsStatus,
+            initialPlaceholder: `${uiLangData[currentAppLanguage]?.online || 'Online'}: 100%`
+        });
+        setMeter(meterShipFuel, infoShipFuel, updates.fuelPct, 'fuel', {
+            initialPlaceholder: '100%'
+        });
+        setText(infoShipCargo, updates.cargo, {
+            initialPlaceholder: `${naShort}/${naShort} SCU`
+        });
         setText(infoShipSpeed, updates.currentShipSpeed, {
             suffix: (updates.currentShipSpeed && typeof updates.currentShipSpeed === 'string' && !/[a-zA-Z]/.test(updates.currentShipSpeed.trim()) && !updates.currentShipSpeed.includes('m/s') && !updates.currentShipSpeed.includes('km/s')) ? ' m/s' : '',
             initialPlaceholder: `0 m/s`
         });
-        
+
         // Comms
-        setText(infoCommsChannelStatus, updates.comms_channel_info, { initialPlaceholder: unknown});
+        setText(infoCommsChannelStatus, updates.comms_channel_info, {
+            initialPlaceholder: unknown
+        });
 
         // Mission
-        setText(infoObjective, updates.objective, { initialPlaceholder: unknown });
-        setText(infoDirectiveReward, updates.directiveReward, { initialPlaceholder: unknown });
-        setText(infoDirectiveStatus, updates.directive_status, { initialPlaceholder: unknown }); // Will be updated by AI
+        setText(infoObjective, updates.objective, {
+            initialPlaceholder: unknown
+        });
+        setText(infoDirectiveReward, updates.directiveReward, {
+            initialPlaceholder: unknown
+        });
+        setText(infoDirectiveStatus, updates.directive_status, {
+            initialPlaceholder: unknown
+        }); // Will be updated by AI
 
         // Alert Level
         if (infoAlertLevel) {
@@ -463,13 +565,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 const lowerVal = String(newAlertDescriptionFromAI).trim().toLowerCase();
 
                 if (lowerVal.includes('red') || lowerVal.includes('critical') || lowerVal.includes('danger') || lowerVal.includes('nebezpečí') || lowerVal.includes('severe') || lowerVal.includes('high') || lowerVal.includes('maximum') || lowerVal.includes('kritické')) {
-                    alertSeverity = 'danger'; alertDisplayKey = 'alert_level_red';
+                    alertSeverity = 'danger';
+                    alertDisplayKey = 'alert_level_red';
                 } else if (lowerVal.includes('yellow') || lowerVal.includes('minor') || lowerVal.includes('varování') || lowerVal.includes('caution') || lowerVal.includes('medium') || lowerVal.includes('moderate') || lowerVal.includes('žlutá') || lowerVal.includes('pozor')) {
-                    alertSeverity = 'warning'; alertDisplayKey = 'alert_level_yellow';
+                    alertSeverity = 'warning';
+                    alertDisplayKey = 'alert_level_yellow';
                 } else if (lowerVal.includes('green') || lowerVal.includes('nominal') || lowerVal.includes('blue') || lowerVal.includes('v pořádku') || lowerVal.includes('operational') || lowerVal.includes('clear') || lowerVal.includes('low') || lowerVal.includes('standby') || lowerVal.includes('zelená') || lowerVal.includes('bezpečný') || lowerVal.includes('normální')) {
-                    alertSeverity = 'ok'; alertDisplayKey = 'alert_level_green';
+                    alertSeverity = 'ok';
+                    alertDisplayKey = 'alert_level_green';
                 }
-                
+
                 const localizedAlertText = uiLangData[currentAppLanguage]?.[alertDisplayKey] || newAlertDescriptionFromAI;
                 infoAlertLevel.textContent = localizedAlertText;
                 infoAlertLevel.className = 'value status-' + alertSeverity;
@@ -483,18 +588,38 @@ document.addEventListener('DOMContentLoaded', () => {
                 infoAlertLevel.className = 'value status-ok';
             }
         }
-        
+
         // Navigation
-        setText(infoLocation, updates.location, { initialPlaceholder: unknown });
-        setText(infoSystemFaction, updates.systemFaction, { initialPlaceholder: unknown });
-        setText(infoEnvironment, updates.environment, { initialPlaceholder: unknown });
-        setText(infoSensorConditions, updates.sensorConditions, { initialPlaceholder: unknown });
-        setText(infoStardate, updates.stardate, { initialPlaceholder: unknown });
+        setText(infoLocation, updates.location, {
+            initialPlaceholder: unknown
+        });
+        setText(infoSystemFaction, updates.systemFaction, {
+            initialPlaceholder: unknown
+        });
+        setText(infoEnvironment, updates.environment, {
+            initialPlaceholder: unknown
+        });
+        setText(infoSensorConditions, updates.sensorConditions, {
+            initialPlaceholder: unknown
+        });
+        setText(infoStardate, updates.stardate, {
+            initialPlaceholder: unknown
+        });
 
         // Enemy Intel (if provided)
-        setText(infoEnemyShipType, updates.enemy_ship_type, { initialPlaceholder: unknown, highlight: enemyIntelConsoleBox.style.display !== 'none' });
-        setMeter(meterEnemyShields, infoEnemyShieldsStatus, updates.enemy_shields_pct, 'enemy_shields', { onlineStatusText: updates.enemy_shields_status_text, highlight: enemyIntelConsoleBox.style.display !== 'none', initialPlaceholder: `${uiLangData[currentAppLanguage]?.offline || 'Offline'}: 0%`});
-        setMeter(meterEnemyHull, infoEnemyHullIntegrity, updates.enemy_hull_pct, 'enemy_hull', { highlight: enemyIntelConsoleBox.style.display !== 'none', initialPlaceholder: '100%' });
+        setText(infoEnemyShipType, updates.enemy_ship_type, {
+            initialPlaceholder: unknown,
+            highlight: enemyIntelConsoleBox.style.display !== 'none'
+        });
+        setMeter(meterEnemyShields, infoEnemyShieldsStatus, updates.enemy_shields_pct, 'enemy_shields', {
+            onlineStatusText: updates.enemy_shields_status_text,
+            highlight: enemyIntelConsoleBox.style.display !== 'none',
+            initialPlaceholder: `${uiLangData[currentAppLanguage]?.offline || 'Offline'}: 0%`
+        });
+        setMeter(meterEnemyHull, infoEnemyHullIntegrity, updates.enemy_hull_pct, 'enemy_hull', {
+            highlight: enemyIntelConsoleBox.style.display !== 'none',
+            initialPlaceholder: '100%'
+        });
     }
 
 
@@ -511,7 +636,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (playerActionInput) {
                             playerActionInput.value = actionText;
                             playerActionInput.focus();
-                            playerActionInput.dispatchEvent(new Event('input', { bubbles: true }));
+                            playerActionInput.dispatchEvent(new Event('input', {
+                                bubbles: true
+                            }));
                         }
                     });
                     suggestedActionsWrapper.appendChild(button);
@@ -524,8 +651,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (suggestedActionsWrapper) suggestedActionsWrapper.innerHTML = '';
     }
 
-    function handleGameStateIndicators(indicators) {
+    function handleGameStateIndicators(indicators, isDuringInitialBoot = false) {
         if (!indicators) return;
+        const CONDITIONAL_CONSOLE_BOOT_DELAY = 3000; // ms (max_config_delay + transition_duration + buffer)
+
 
         // --- Combat Intel Console ---
         const shouldShowEnemyIntel = indicators.combat_engaged === true;
@@ -533,24 +662,21 @@ document.addEventListener('DOMContentLoaded', () => {
             const isCurrentlyVisible = enemyIntelConsoleBox.style.display !== 'none';
             if (shouldShowEnemyIntel) {
                 if (!isCurrentlyVisible) {
-                    enemyIntelConsoleBox.style.display = 'block'; // Or 'flex'
-                    animateConsoleBox(enemyIntelConsoleBox.id, true);
+                    if (isDuringInitialBoot) {
+                        setTimeout(() => {
+                            animateConsoleBox(enemyIntelConsoleBox.id, true);
+                        }, CONDITIONAL_CONSOLE_BOOT_DELAY);
+                    } else {
+                        animateConsoleBox(enemyIntelConsoleBox.id, true);
+                    }
                 }
             } else { // Should NOT be shown
                 if (isCurrentlyVisible) {
                     animateConsoleBox(enemyIntelConsoleBox.id, false); // Start collapse
-                    // Listen for transition end to hide, or use a timeout as a fallback
-                    // but it's better to rely on the element's state.
-                    // The .is-expanded class is removed by animateConsoleBox.
-                    // CSS will transition max-height to 0.
-                    // We can hide it more deterministically after the animation.
                     const content = enemyIntelConsoleBox.querySelector('.console-box-content');
                     const hideEnemyIntel = () => {
                         if (!enemyIntelConsoleBox.classList.contains('is-expanded') && enemyIntelConsoleBox.style.display !== 'none') {
-                           // Double check the LATEST game state if possible, or trust the collapse implies it should be hidden
-                           // For simplicity here, if it's collapsed, and was meant to be hidden, hide it.
-                           // A more robust way would be to check the *current game state flags* again.
-                           enemyIntelConsoleBox.style.display = 'none';
+                            enemyIntelConsoleBox.style.display = 'none';
                         }
                         if (content) content.removeEventListener('transitionend', hideEnemyIntelConditional);
                     };
@@ -559,13 +685,14 @@ document.addEventListener('DOMContentLoaded', () => {
                             hideEnemyIntel();
                         }
                     };
-                    
+
                     if (content) {
-                        content.addEventListener('transitionend', hideEnemyIntelConditional, { once: true });
-                         // Fallback timeout in case transitionend doesn't fire (e.g., if display was set to none elsewhere)
-                        setTimeout(hideEnemyIntel, 1600); // Slightly longer than transition
+                        content.addEventListener('transitionend', hideEnemyIntelConditional, {
+                            once: true
+                        });
+                        setTimeout(hideEnemyIntel, 1600);
                     } else {
-                        setTimeout(hideEnemyIntel, 1600); // Fallback if no content to attach event to
+                        setTimeout(hideEnemyIntel, 1600);
                     }
                 }
             }
@@ -577,32 +704,38 @@ document.addEventListener('DOMContentLoaded', () => {
             const isCurrentlyVisible = commsChannelConsoleBox.style.display !== 'none';
             if (shouldShowCommsChannel) {
                 if (!isCurrentlyVisible) {
-                    commsChannelConsoleBox.style.display = 'block'; // Or 'flex'
-                    animateConsoleBox(commsChannelConsoleBox.id, true);
+                    if (isDuringInitialBoot) {
+                        setTimeout(() => {
+                            animateConsoleBox(commsChannelConsoleBox.id, true);
+                        }, CONDITIONAL_CONSOLE_BOOT_DELAY);
+                    } else {
+                        animateConsoleBox(commsChannelConsoleBox.id, true);
+                    }
                 }
             } else { // Should NOT be shown
                 if (isCurrentlyVisible) {
                     animateConsoleBox(commsChannelConsoleBox.id, false); // Start collapse
-                    
+
                     const content = commsChannelConsoleBox.querySelector('.console-box-content');
                     const hideComms = () => {
-                        // Check the class directly, as 'indicators' might be stale if another call happened.
                         if (!commsChannelConsoleBox.classList.contains('is-expanded') && commsChannelConsoleBox.style.display !== 'none') {
-                           commsChannelConsoleBox.style.display = 'none';
+                            commsChannelConsoleBox.style.display = 'none';
                         }
-                         if (content) content.removeEventListener('transitionend', hideCommsConditional);
+                        if (content) content.removeEventListener('transitionend', hideCommsConditional);
                     };
                     const hideCommsConditional = (event) => {
                         if (event.target === content && event.propertyName === 'max-height') {
-                           hideComms();
+                            hideComms();
                         }
                     };
 
                     if (content) {
-                        content.addEventListener('transitionend', hideCommsConditional, { once: true });
-                        setTimeout(hideComms, 1600); // Fallback timeout
+                        content.addEventListener('transitionend', hideCommsConditional, {
+                            once: true
+                        });
+                        setTimeout(hideComms, 1600);
                     } else {
-                        setTimeout(hideComms, 1600); // Fallback
+                        setTimeout(hideComms, 1600);
                     }
                 }
             }
@@ -612,10 +745,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (indicators.combat_engaged === true) {
             currentPromptType = 'combat';
         } else {
-            // Only switch to default if not already default.
-            // 'initial' prompt is used only once. After that, it's 'default' or 'combat'.
             if (currentPromptType !== 'default') {
-                 currentPromptType = 'default';
+                currentPromptType = 'default';
             }
         }
     }
@@ -635,12 +766,10 @@ document.addEventListener('DOMContentLoaded', () => {
         setGMActivity(true);
         clearSuggestedActions();
 
-        // Determine which prompt to use for *this* call.
-        // For the very first call, it's 'initial'. For subsequent, it's based on game state.
         const activePromptType = currentTurnHistory.length === 1 && currentTurnHistory[0].role === 'user' && currentTurnHistory[0].parts[0].text.startsWith("My callsign is") ? 'initial' : currentPromptType;
         const systemPromptText = getSystemPrompt(playerCallsign, activePromptType);
 
-        if (systemPromptText.startsWith("Error:")) { // Handle missing prompt data
+        if (systemPromptText.startsWith("Error:")) {
             addMessageToLog(systemPromptText, 'system');
             setGMActivity(false);
             return null;
@@ -651,27 +780,51 @@ document.addEventListener('DOMContentLoaded', () => {
         let payload = {
             contents: currentTurnHistory,
             generationConfig: {
-                temperature: 0.7, topP: 0.95, maxOutputTokens: 8000, responseMimeType: "application/json",
+                temperature: 0.7,
+                topP: 0.95,
+                maxOutputTokens: 8000,
+                responseMimeType: "application/json",
             },
-            safetySettings: [
-                { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
-                { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
-                { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
-                { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
+            safetySettings: [{
+                    category: "HARM_CATEGORY_HARASSMENT",
+                    threshold: "BLOCK_MEDIUM_AND_ABOVE"
+                },
+                {
+                    category: "HARM_CATEGORY_HATE_SPEECH",
+                    threshold: "BLOCK_MEDIUM_AND_ABOVE"
+                },
+                {
+                    category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                    threshold: "BLOCK_MEDIUM_AND_ABOVE"
+                },
+                {
+                    category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+                    threshold: "BLOCK_MEDIUM_AND_ABOVE"
+                },
             ],
-            systemInstruction: { parts: [{ text: systemPromptText }] }
+            systemInstruction: {
+                parts: [{
+                    text: systemPromptText
+                }]
+            }
         };
-        
+
         try {
             const response = await fetch(API_URL, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload),
             });
             const responseData = await response.json();
 
             if (!response.ok) {
                 console.error("API Error Response:", responseData);
                 let errDetail = responseData.error?.message || `API Error ${response.status}`;
-                if (responseData.error?.details) { errDetail += ` Details: ${JSON.stringify(responseData.error.details)}`; }
+                if (responseData.error?.details) {
+                    errDetail += ` Details: ${JSON.stringify(responseData.error.details)}`;
+                }
                 throw new Error(errDetail);
             }
 
@@ -679,18 +832,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 let jsonStr = responseData.candidates[0].content.parts[0].text;
                 try {
                     const parsed = JSON.parse(jsonStr);
-                    if (typeof parsed.narrative !== 'string' || 
-                        typeof parsed.dashboard_updates !== 'object' || 
+                    if (typeof parsed.narrative !== 'string' ||
+                        typeof parsed.dashboard_updates !== 'object' ||
                         !Array.isArray(parsed.suggested_actions) ||
-                        typeof parsed.game_state_indicators !== 'object') { // New check
+                        typeof parsed.game_state_indicators !== 'object') {
                         console.error("Parsed JSON structure is invalid:", parsed);
                         throw new Error("Invalid JSON structure from AI. Missing core fields or game_state_indicators.");
                     }
-                    gameHistory.push({ role: "model", parts: [{ text: JSON.stringify(parsed) }] });
-                    
+                    gameHistory.push({
+                        role: "model",
+                        parts: [{
+                            text: JSON.stringify(parsed)
+                        }]
+                    });
+
                     updateDashboard(parsed.dashboard_updates);
                     displaySuggestedActions(parsed.suggested_actions);
-                    handleGameStateIndicators(parsed.game_state_indicators); // Process state changes
+                    handleGameStateIndicators(parsed.game_state_indicators, isInitialGameLoad);
+                    if (isInitialGameLoad) {
+                        isInitialGameLoad = false;
+                    }
+
 
                     const onlineText = (uiLangData[currentAppLanguage]?.system_status_online_short || "System Online");
                     if (systemStatusIndicator) {
@@ -731,30 +893,40 @@ document.addEventListener('DOMContentLoaded', () => {
             if (playerCallsignInput) playerCallsignInput.focus();
             return;
         }
+        isInitialGameLoad = true;
 
         if (nameInputSection) nameInputSection.style.display = 'none';
         if (actionInputSection) actionInputSection.style.display = 'flex';
         if (playerActionInput) {
             playerActionInput.value = '';
-            playerActionInput.dispatchEvent(new Event('input', { bubbles: true }));
-             autoGrowTextarea(playerActionInput);
+            playerActionInput.dispatchEvent(new Event('input', {
+                bubbles: true
+            }));
+            autoGrowTextarea(playerActionInput);
         }
-        updateDashboard({ callsign: playerCallsign }); // Show callsign immediately
+        updateDashboard({
+            callsign: playerCallsign
+        });
         addMessageToLog(`${uiLangData[currentAppLanguage]?.connecting || 'Connecting as'}: ${playerCallsign}...`, 'system');
 
-        currentPromptType = 'initial'; // Set for the very first call
-        gameHistory = [{ role: "user", parts: [{ text: `My callsign is ${playerCallsign}. I am ready to start the game.` }] }];
+        currentPromptType = 'initial';
+        gameHistory = [{
+            role: "user",
+            parts: [{
+                text: `My callsign is ${playerCallsign}. I am ready to start the game.`
+            }]
+        }];
         clearSuggestedActions();
 
         const narrative = await callGeminiAPI(gameHistory);
         if (narrative) {
             addMessageToLog(narrative, 'gm');
-            triggerCockpitBootAnimation(); // Animate standard consoles
-             // The game_state_indicators from the first response will handle conditional consoles
+            triggerCockpitBootAnimation();
         } else {
             if (nameInputSection) nameInputSection.style.display = 'flex';
             if (actionInputSection) actionInputSection.style.display = 'none';
             addMessageToLog("Failed to initialize session. Please check console and try again.", 'system');
+            isInitialGameLoad = false;
         }
     }
 
@@ -767,13 +939,19 @@ document.addEventListener('DOMContentLoaded', () => {
         addMessageToLog(action, 'player');
         if (playerActionInput) {
             playerActionInput.value = '';
-            playerActionInput.dispatchEvent(new Event('input', { bubbles: true }));
+            playerActionInput.dispatchEvent(new Event('input', {
+                bubbles: true
+            }));
             autoGrowTextarea(playerActionInput);
         }
         clearSuggestedActions();
 
-        gameHistory.push({ role: "user", parts: [{ text: action }] });
-        // currentPromptType is already set by the previous AI response via handleGameStateIndicators
+        gameHistory.push({
+            role: "user",
+            parts: [{
+                text: action
+            }]
+        });
         const narrative = await callGeminiAPI(gameHistory);
         if (narrative) {
             addMessageToLog(narrative, 'gm');
@@ -796,21 +974,30 @@ document.addEventListener('DOMContentLoaded', () => {
         if (infoShipName) infoShipName.textContent = unknown;
         if (infoShipType) infoShipType.textContent = unknown;
         if (infoShipIntegrity) infoShipIntegrity.textContent = '100%';
-        if (meterShipIntegrity) { meterShipIntegrity.style.width = '100%'; meterShipIntegrity.style.backgroundColor = 'var(--color-status-integrity-ok-bar)'; }
+        if (meterShipIntegrity) {
+            meterShipIntegrity.style.width = '100%';
+            meterShipIntegrity.style.backgroundColor = 'var(--color-status-integrity-ok-bar)';
+        }
         if (infoShipShields) infoShipShields.textContent = `${onlineText}: 100%`;
-        if (meterShipShields) { meterShipShields.style.width = '100%'; meterShipShields.style.backgroundColor = 'var(--color-status-info-bar)'; }
+        if (meterShipShields) {
+            meterShipShields.style.width = '100%';
+            meterShipShields.style.backgroundColor = 'var(--color-status-info-bar)';
+        }
         if (infoShipFuel) infoShipFuel.textContent = '100%';
-        if (meterShipFuel) { meterShipFuel.style.width = '100%'; meterShipFuel.style.backgroundColor = 'var(--color-status-fuel-ok-bar)'; }
+        if (meterShipFuel) {
+            meterShipFuel.style.width = '100%';
+            meterShipFuel.style.backgroundColor = 'var(--color-status-fuel-ok-bar)';
+        }
         if (infoShipCargo) infoShipCargo.textContent = `${na}/${na} SCU`;
         if (infoShipSpeed) infoShipSpeed.textContent = `0 m/s`;
-        
+
         // Comms
         if (infoCommsChannelStatus) infoCommsChannelStatus.textContent = unknown;
 
         // Mission
         if (infoObjective) infoObjective.textContent = unknown;
         if (infoDirectiveReward) infoDirectiveReward.textContent = unknown;
-        if (infoDirectiveStatus) infoDirectiveStatus.textContent = unknown; // Default
+        if (infoDirectiveStatus) infoDirectiveStatus.textContent = unknown;
         if (infoAlertLevel) {
             const alertKey = 'alert_level_green';
             infoAlertLevel.textContent = uiLangData[currentAppLanguage]?.[alertKey] || 'Green';
@@ -827,22 +1014,27 @@ document.addEventListener('DOMContentLoaded', () => {
         // Enemy Intel
         if (infoEnemyShipType) infoEnemyShipType.textContent = unknown;
         if (infoEnemyShieldsStatus) infoEnemyShieldsStatus.textContent = `${offlineText}: 0%`;
-        if (meterEnemyShields) { meterEnemyShields.style.width = '0%'; meterEnemyShields.style.backgroundColor = 'var(--color-status-offline-bar)';}
+        if (meterEnemyShields) {
+            meterEnemyShields.style.width = '0%';
+            meterEnemyShields.style.backgroundColor = 'var(--color-status-offline-bar)';
+        }
         if (infoEnemyHullIntegrity) infoEnemyHullIntegrity.textContent = `100%`;
-        if (meterEnemyHull) { meterEnemyHull.style.width = '100%'; meterEnemyHull.style.backgroundColor = 'var(--color-status-integrity-ok-bar)';}
+        if (meterEnemyHull) {
+            meterEnemyHull.style.width = '100%';
+            meterEnemyHull.style.backgroundColor = 'var(--color-status-integrity-ok-bar)';
+        }
 
 
         if (playerCallsignInput) playerCallsignInput.placeholder = uiLangData[currentAppLanguage]?.placeholder_callsign_login || "Enter callsign...";
         if (playerActionInput) playerActionInput.placeholder = uiLangData[currentAppLanguage]?.placeholder_command || "Enter command...";
 
-        // Ensure conditional consoles are hidden initially
         if (commsChannelConsoleBox) commsChannelConsoleBox.style.display = 'none';
         if (enemyIntelConsoleBox) enemyIntelConsoleBox.style.display = 'none';
     }
 
     function autoGrowTextarea(textarea) {
         if (!textarea) return;
-        textarea.style.height = 'auto'; // Temporarily shrink to get the true scrollHeight
+        textarea.style.height = 'auto';
         let newHeight = textarea.scrollHeight;
         const maxHeight = parseInt(window.getComputedStyle(textarea).maxHeight, 10) || Infinity;
 
@@ -855,119 +1047,112 @@ document.addEventListener('DOMContentLoaded', () => {
         textarea.style.height = newHeight + 'px';
     }
 
-// --- Collapsible Console Box Logic ---
-const consoleBoxAnimationConfig = [ // Standard consoles for initial boot animation
-    { id: 'ship-status-console-box', delay: 1200 },
-    { id: 'navigation-data-console-box', delay: 1200 },
-    { id: 'captain-status-console-box', delay: 300 },
-    { id: 'mission-intel-console-box', delay: 300 }
-];
-
-function animateConsoleBox(boxId, shouldExpand) {
-    const box = document.getElementById(boxId);
-    if (!box) {
-        // console.warn(`animateConsoleBox: Box with ID '${boxId}' not found.`);
-        return;
-    }
-    const header = box.querySelector('.console-box-header');
-    const content = box.querySelector('.console-box-content');
-    if (!header || !content) {
-        // console.warn(`animateConsoleBox: Header or content not found for box '${boxId}'.`);
-        return;
-    }
-
-    // Ensure the box is displayed if it's meant to expand or is already visible
-    if (shouldExpand && box.style.display === 'none') {
-        box.style.display = 'block'; // Or 'flex' if your .console-box is a flex container
-    }
-    
-    // For smooth animation, especially from display:none,
-    // it's sometimes good to allow a reflow before adding classes that trigger transitions.
-    // Using requestAnimationFrame can help.
-    requestAnimationFrame(() => {
-        if (shouldExpand) {
-            box.classList.add('is-expanded');
-            header.setAttribute('aria-expanded', 'true');
-            content.setAttribute('aria-hidden', 'false');
-            // The CSS transition on .console-box.is-expanded .console-box-content
-            // for max-height and opacity should now take effect.
-        } else {
-            box.classList.remove('is-expanded');
-            header.setAttribute('aria-expanded', 'false');
-            content.setAttribute('aria-hidden', 'true');
-            // CSS transition for collapsing will occur.
-            // Hiding with display:none after collapse is handled by handleGameStateIndicators for conditional consoles
+    const consoleBoxAnimationConfig = [{
+            id: 'ship-status-console-box',
+            delay: 1200
+        },
+        {
+            id: 'navigation-data-console-box',
+            delay: 1200
+        },
+        {
+            id: 'captain-status-console-box',
+            delay: 300
+        },
+        {
+            id: 'mission-intel-console-box',
+            delay: 300
         }
-    });
-}
+    ];
 
-function triggerCockpitBootAnimation() {
-    consoleBoxAnimationConfig.forEach(config => {
-        setTimeout(() => {
-            const box = document.getElementById(config.id);
-            if (box) { // No need to check display:none here, animateConsoleBox will handle it
-                animateConsoleBox(config.id, true); // Expand these standard consoles
-            }
-        }, config.delay);
-    });
-}
-
-function initializeCollapsibleConsoleBoxes() {
-    const consoleBoxes = document.querySelectorAll('.console-box.collapsible');
-    consoleBoxes.forEach(box => {
+    function animateConsoleBox(boxId, shouldExpand) {
+        const box = document.getElementById(boxId);
+        if (!box) {
+            return;
+        }
         const header = box.querySelector('.console-box-header');
         const content = box.querySelector('.console-box-content');
+        if (!header || !content) {
+            return;
+        }
 
-        if (header && content) {
-            // Determine if it's a standard boot console or a conditional one
-            const isStandardBootConsole = consoleBoxAnimationConfig.some(c => c.id === box.id);
-            const isConditionalConsole = box.id === 'comms-channel-console-box' || box.id === 'enemy-intel-console-box';
+        if (shouldExpand && box.style.display === 'none') {
+            box.style.display = 'block';
+        }
 
-            if (isStandardBootConsole) {
-                // Standard consoles are made visible (if not already) and will be expanded by triggerCockpitBootAnimation
-                box.style.display = 'block'; // Or 'flex'
-                header.setAttribute('aria-expanded', 'false'); // Initially false, boot animation sets to true
-                content.setAttribute('aria-hidden', 'true');  // Initially true
-                // Content starts collapsed (max-height: 0, opacity: 0 via CSS)
-                // animateConsoleBox will add 'is-expanded' to trigger animation
-            } else if (isConditionalConsole) {
-                // Conditional consoles start hidden and collapsed
-                box.style.display = 'none';
-                header.setAttribute('aria-expanded', 'false');
-                content.setAttribute('aria-hidden', 'true');
-                // Ensure they are not expanded by default
-                box.classList.remove('is-expanded');
-            } else {
-                 // For any other console box not in configs, assume it's always visible and starts expanded
-                box.style.display = 'block'; // or 'flex'
+        requestAnimationFrame(() => {
+            if (shouldExpand) {
                 box.classList.add('is-expanded');
                 header.setAttribute('aria-expanded', 'true');
                 content.setAttribute('aria-hidden', 'false');
+            } else {
+                box.classList.remove('is-expanded');
+                header.setAttribute('aria-expanded', 'false');
+                content.setAttribute('aria-hidden', 'true');
             }
+        });
+    }
 
-
-            header.addEventListener('click', () => {
-                if (box.style.display !== 'none') { // Only toggle if visible
-                    const isNowExpanded = !box.classList.contains('is-expanded');
-                    animateConsoleBox(box.id, isNowExpanded);
+    function triggerCockpitBootAnimation() {
+        consoleBoxAnimationConfig.forEach(config => {
+            setTimeout(() => {
+                const box = document.getElementById(config.id);
+                if (box) {
+                    animateConsoleBox(config.id, true);
                 }
-            });
+            }, config.delay);
+        });
+    }
 
-            header.setAttribute('tabindex', '0');
-            header.addEventListener('keydown', (e) => {
-                if ((e.key === 'Enter' || e.key === ' ') && box.style.display !== 'none') {
-                    e.preventDefault();
-                    const isNowExpanded = !box.classList.contains('is-expanded');
-                    animateConsoleBox(box.id, isNowExpanded);
+    function initializeCollapsibleConsoleBoxes() {
+        const consoleBoxes = document.querySelectorAll('.console-box.collapsible');
+        consoleBoxes.forEach(box => {
+            const header = box.querySelector('.console-box-header');
+            const content = box.querySelector('.console-box-content');
+
+            if (header && content) {
+                const isStandardBootConsole = consoleBoxAnimationConfig.some(c => c.id === box.id);
+                const isConditionalConsole = box.id === 'comms-channel-console-box' || box.id === 'enemy-intel-console-box';
+
+                if (isStandardBootConsole) {
+                    box.style.display = 'block';
+                    header.setAttribute('aria-expanded', 'false');
+                    content.setAttribute('aria-hidden', 'true');
+                } else if (isConditionalConsole) {
+                    box.style.display = 'none';
+                    header.setAttribute('aria-expanded', 'false');
+                    content.setAttribute('aria-hidden', 'true');
+                    box.classList.remove('is-expanded');
+                } else {
+                    box.style.display = 'block';
+                    box.classList.add('is-expanded');
+                    header.setAttribute('aria-expanded', 'true');
+                    content.setAttribute('aria-hidden', 'false');
                 }
-            });
-        }
-    });
-}
+
+
+                header.addEventListener('click', () => {
+                    if (box.style.display !== 'none') {
+                        const isNowExpanded = !box.classList.contains('is-expanded');
+                        animateConsoleBox(box.id, isNowExpanded);
+                    }
+                });
+
+                header.setAttribute('tabindex', '0');
+                header.addEventListener('keydown', (e) => {
+                    if ((e.key === 'Enter' || e.key === ' ') && box.style.display !== 'none') {
+                        e.preventDefault();
+                        const isNowExpanded = !box.classList.contains('is-expanded');
+                        animateConsoleBox(box.id, isNowExpanded);
+                    }
+                });
+            }
+        });
+    }
 
     async function initializeApp() {
-        setAppLanguage(currentAppLanguage); // Sets text, also calls initializeDashboardDefaultTexts
-        
+        setAppLanguage(currentAppLanguage);
+
         if (systemStatusIndicator) {
             systemStatusIndicator.textContent = (uiLangData[currentAppLanguage]?.standby || "Standby");
             systemStatusIndicator.className = 'status-indicator status-warning';
@@ -991,9 +1176,9 @@ function initializeCollapsibleConsoleBoxes() {
         } else {
             if (playerCallsignInput) playerCallsignInput.focus();
         }
-        
+
         clearSuggestedActions();
-        initializeCollapsibleConsoleBoxes(); // Sets up all console boxes, including initially hidden ones
+        initializeCollapsibleConsoleBoxes();
         if (playerActionInput) {
             autoGrowTextarea(playerActionInput);
         }
@@ -1002,7 +1187,9 @@ function initializeCollapsibleConsoleBoxes() {
     // Event Listeners
     if (languageToggleButton) languageToggleButton.addEventListener('click', toggleAppLanguage);
     if (startGameButton) startGameButton.addEventListener('click', startGame);
-    if (playerCallsignInput) playerCallsignInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') startGame(); });
+    if (playerCallsignInput) playerCallsignInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') startGame();
+    });
     if (sendActionButton) sendActionButton.addEventListener('click', sendPlayerAction);
     if (playerActionInput) {
         playerActionInput.addEventListener('keypress', (e) => {
