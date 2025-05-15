@@ -871,7 +871,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return null;
         }
 
-        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent?key=${GEMINI_API_KEY}`;
 
         let payload = {
             contents: currentTurnHistory,

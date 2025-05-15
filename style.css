@@ -66,7 +66,7 @@
     --shadow-console-box: 0px 2px 8px rgba(0, 0, 0, 0.2);
     --shadow-input-area: 0px -2px 5px rgba(0, 0, 0, 0.15);
     --shadow-focus-ring: 0 0 0 2px var(--color-text-accent-interactive);
-    --highlight-bg-value-update: rgba(var(--color-accent-light-gray-rgb), 0.02);
+    --highlight-bg-value-update: rgba(var(--color-accent-light-gray-rgb), 0.06);
   
     --spacing-unit: 4px;
     --spacing-xs: var(--spacing-unit);
