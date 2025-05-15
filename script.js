@@ -1,8 +1,9 @@
 document.addEventListener('DOMContentLoaded', () => {
 
-    const GEMINI_API_KEY = "AIzaSyA84Kyu7r2tTnaP_u5q9dd-B4NiTnwDkso"; // Replace with your actual key
+    let GEMINI_API_KEY = ""; // Will be populated by user input or localStorage
     const DEFAULT_LANGUAGE = 'en';
     const UPDATE_HIGHLIGHT_DURATION = 5000; // ms
+    const GAME_STATE_STORAGE_KEY = 'odysseyGameState';
 
     const PROMPT_URLS = {
         initial: 'prompts/initial.txt',
@@ -27,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const systemStatusIndicator = document.getElementById('system-status-indicator');
     const gmSpecificActivityIndicator = document.getElementById('gm-activity-indicator');
     const languageToggleButton = document.getElementById('language-toggle-button');
+    const newGameButton = document.getElementById('new-game-button'); // Assuming you add this button
 
     // Player Status
     const infoPlayerCallsign = document.getElementById('info-player-callsign');
@@ -73,7 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Story & Input
     const storyLog = document.getElementById('story-log');
-    const storyLogViewport = document.getElementById('story-log-viewport'); // Added for animation
+    const storyLogViewport = document.getElementById('story-log-viewport');
     const suggestedActionsWrapper = document.getElementById('suggested-actions-wrapper');
     const nameInputSection = document.getElementById('name-input-section');
     const playerCallsignInput = document.getElementById('player-name-input');
@@ -86,7 +88,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let playerCallsign = '';
     let currentAppLanguage = localStorage.getItem('preferredAppLanguage') || DEFAULT_LANGUAGE;
     let currentNarrativeLanguage = localStorage.getItem('preferredNarrativeLanguage') || DEFAULT_LANGUAGE;
-    let isInitialGameLoad = false;
+    let isInitialGameLoad = true; // Will be set to false if a game is loaded or after first AI response
+
+    let lastKnownDashboardUpdates = null;
+    let lastKnownGameStateIndicators = null;
 
     const uiLangData = {
         en: {
@@ -153,6 +158,9 @@ document.addEventListener('DOMContentLoaded', () => {
             "activity_exploring": "Exploring",
             "activity_fighting": "Fighting",
             "activity_communicating": "Communicating",
+            "button_new_game": "New Game",
+            "aria_label_new_game": "Start a new game session",
+            "confirm_new_game": "Are you sure you want to start a new game? Current progress will be lost."
         },
         cs: {
             "toggle_language": "Česky",
@@ -218,12 +226,152 @@ document.addEventListener('DOMContentLoaded', () => {
             "activity_exploring": "Průzkum",
             "activity_fighting": "Boj",
             "activity_communicating": "Komunikace",
+            "button_new_game": "Nová Hra",
+            "aria_label_new_game": "Začít novou herní relaci",
+            "confirm_new_game": "Opravdu chcete začít novou hru? Aktuální postup bude ztracen."
         }
     };
     const NARRATIVE_LANG_PROMPT_PARTS = {
         en: `This narrative must be written in fluent, immersive English, suitable for a high-quality sci-fi novel. Dialogue should be natural.`,
         cs: `Tento příběh musí být napsán plynulou, poutavou češtinou, vhodnou pro kvalitní sci-fi román. Dialogy by měly být přirozené.`
     };
+
+
+    function setupApiKey() {
+        GEMINI_API_KEY = localStorage.getItem('userGeminiApiKey');
+
+        if (!GEMINI_API_KEY) {
+            GEMINI_API_KEY = prompt("Welcome to Odyssey!\nPlease enter your Google Gemini API Key to begin:", "");
+            if (GEMINI_API_KEY && GEMINI_API_KEY.trim() !== "") {
+                localStorage.setItem('userGeminiApiKey', GEMINI_API_KEY);
+            } else {
+                GEMINI_API_KEY = "";
+                alert("Gemini API Key is required to play. Please refresh and provide a key.");
+            }
+        }
+
+        if (!GEMINI_API_KEY) {
+            const apiKeyErrorMsg = "CRITICAL: Gemini API Key not provided or invalid. The game cannot connect to the AI.\n" +
+                                 "Please refresh and enter your key.\n" +
+                                 "If you need to change it later, open developer console (F12 -> Application -> Local Storage -> delete 'userGeminiApiKey') and refresh.";
+            addMessageToLog(apiKeyErrorMsg, 'system');
+            if (systemStatusIndicator) {
+                systemStatusIndicator.textContent = (uiLangData[currentAppLanguage]?.status_error || "Error");
+                systemStatusIndicator.className = 'status-indicator status-danger';
+            }
+            if (startGameButton) startGameButton.disabled = true;
+            if (playerCallsignInput) playerCallsignInput.disabled = true;
+            if (playerActionInput) playerActionInput.disabled = true;
+            if (sendActionButton) sendActionButton.disabled = true;
+            // languageToggleButton can remain enabled
+            return false; // Indicate failure
+        }
+        return true; // Indicate success
+    }
+
+    function saveGameState() {
+        if (!playerCallsign) return;
+
+        const gameState = {
+            playerCallsign: playerCallsign,
+            gameHistory: gameHistory,
+            lastDashboardUpdates: lastKnownDashboardUpdates,
+            lastGameStateIndicators: lastKnownGameStateIndicators,
+            currentPromptType: currentPromptType,
+            currentNarrativeLanguage: currentNarrativeLanguage
+        };
+        try {
+            localStorage.setItem(GAME_STATE_STORAGE_KEY, JSON.stringify(gameState));
+            console.log("Game state saved.");
+        } catch (e) {
+            console.error("Error saving game state:", e);
+        }
+    }
+
+    function loadGameState() {
+        try {
+            const savedStateString = localStorage.getItem(GAME_STATE_STORAGE_KEY);
+            if (!savedStateString) {
+                console.log("No saved game state found.");
+                return false;
+            }
+
+            const savedState = JSON.parse(savedStateString);
+
+            if (!savedState.playerCallsign || !savedState.gameHistory || savedState.gameHistory.length === 0) {
+                console.warn("Saved game state is incomplete. Starting new game.");
+                clearGameState();
+                return false;
+            }
+
+            playerCallsign = savedState.playerCallsign;
+            gameHistory = savedState.gameHistory;
+            lastKnownDashboardUpdates = savedState.lastDashboardUpdates;
+            lastKnownGameStateIndicators = savedState.lastGameStateIndicators;
+            currentPromptType = savedState.currentPromptType || 'default';
+            currentNarrativeLanguage = savedState.currentNarrativeLanguage || DEFAULT_LANGUAGE;
+
+            setAppLanguage(currentNarrativeLanguage);
+
+            if (storyLog) storyLog.innerHTML = '';
+            gameHistory.forEach(turn => {
+                if (turn.role === 'user') {
+                    addMessageToLog(turn.parts[0].text, 'player');
+                } else if (turn.role === 'model') {
+                    try {
+                        const modelResponse = JSON.parse(turn.parts[0].text);
+                        addMessageToLog(modelResponse.narrative, 'gm');
+                    } catch (e) {
+                        console.error("Error parsing model response from saved history:", e);
+                        addMessageToLog("Error: Could not reconstruct part of the story.", 'system');
+                    }
+                }
+            });
+
+            if (lastKnownDashboardUpdates) {
+                updateDashboard(lastKnownDashboardUpdates);
+            }
+            if (lastKnownGameStateIndicators) {
+                handleGameStateIndicators(lastKnownGameStateIndicators, false); // false = not initial boot
+            }
+            if (infoPlayerCallsign && playerCallsign) {
+               infoPlayerCallsign.textContent = playerCallsign;
+           }
+
+
+            console.log("Game state loaded successfully.");
+            isInitialGameLoad = false;
+            return true;
+
+        } catch (e) {
+            console.error("Error loading game state:", e);
+            clearGameState();
+            return false;
+        }
+    }
+
+    function clearGameState() {
+        localStorage.removeItem(GAME_STATE_STORAGE_KEY);
+        gameHistory = [];
+        playerCallsign = '';
+        currentPromptType = 'initial';
+        isInitialGameLoad = true;
+        lastKnownDashboardUpdates = null;
+        lastKnownGameStateIndicators = null;
+
+        if (storyLog) storyLog.innerHTML = '';
+        initializeDashboardDefaultTexts();
+        clearSuggestedActions();
+        if (enemyIntelConsoleBox && enemyIntelConsoleBox.style.display !== 'none') {
+            animateConsoleBox(enemyIntelConsoleBox.id, false);
+             setTimeout(() => { if(enemyIntelConsoleBox) enemyIntelConsoleBox.style.display = 'none'; }, 1600);
+        }
+        if (commsChannelConsoleBox && commsChannelConsoleBox.style.display !== 'none') {
+            animateConsoleBox(commsChannelConsoleBox.id, false);
+            setTimeout(() => { if(commsChannelConsoleBox) commsChannelConsoleBox.style.display = 'none'; }, 1600);
+        }
+        console.log("Game state cleared.");
+    }
 
     async function fetchPrompt(promptName) {
         if (!PROMPT_URLS[promptName]) {
@@ -282,12 +430,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const key = el.getAttribute('data-lang-key');
             if (uiLangData[lang] && uiLangData[lang][key]) {
                 if ((el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA')) {
-                    if (!el.classList.contains('console-box-title') || el.tagName.toLowerCase() === 'h3') {
+                     // Special handling for console box titles (H3) vs other elements within the header
+                    if (el.classList.contains('console-box-title') && el.tagName.toLowerCase() === 'h3') {
+                        el.textContent = uiLangData[lang][key];
+                    } else if (!el.classList.contains('console-box-title')) { // Affects non-title elements
                         el.textContent = uiLangData[lang][key];
                     }
                 }
             }
         });
+        // Ensure console box titles are updated if they were missed by the above logic
         document.querySelectorAll('.console-box-title[data-lang-key]').forEach(el => {
             const key = el.getAttribute('data-lang-key');
             if (uiLangData[lang] && uiLangData[lang][key]) {
@@ -311,7 +463,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 el.setAttribute('aria-label', uiLangData[lang][key]);
             }
         });
-
+        // Update the language toggle button text and ARIA label
         if (languageToggleButton) {
             const otherLang = lang === 'en' ? 'cs' : 'en';
             languageToggleButton.textContent = uiLangData[otherLang]?.toggle_language || (otherLang === 'cs' ? 'Česky' : 'English');
@@ -319,18 +471,20 @@ document.addEventListener('DOMContentLoaded', () => {
             const ariaLabelText = uiLangData[otherLang]?.[ariaKeyForToggleAction] || `Switch to ${otherLang === 'cs' ? 'Czech' : 'English'}`;
             languageToggleButton.setAttribute('aria-label', ariaLabelText);
         }
-        initializeDashboardDefaultTexts();
+
+        initializeDashboardDefaultTexts(); // Re-initialize texts with current lang if they are at default
     }
 
     function toggleAppLanguage() {
         const newLang = currentAppLanguage === 'en' ? 'cs' : 'en';
-        setAppLanguage(newLang);
-        currentNarrativeLanguage = newLang;
+        setAppLanguage(newLang); // This will update UI and call initializeDashboardDefaultTexts
+        currentNarrativeLanguage = newLang; // Sync narrative language
         localStorage.setItem('preferredNarrativeLanguage', newLang);
 
         const systemMessageKey = newLang === 'en' ? "system_lang_set_en" : "system_lang_set_cs";
         let systemMessage = uiLangData[newLang]?.[systemMessageKey] || `System: UI & Narrative language set to ${newLang.toUpperCase()}.`;
         addMessageToLog(systemMessage, 'system');
+        saveGameState(); // Save state after language change if a game is in progress
     }
 
     const getSystemPrompt = (currentCallsignForPrompt, promptTypeToUse) => {
@@ -384,7 +538,6 @@ document.addEventListener('DOMContentLoaded', () => {
         basePromptText = basePromptText.replace(/\$\{currentNarrativeLanguage\.toUpperCase\(\)\}/g, currentNarrativeLanguage.toUpperCase());
         basePromptText = basePromptText.replace(/\$\{currentNarrativeLanguage\.toUpperCase\(\) === 'EN' \? "'Online' or 'Offline'" : "'Připojeno' or 'Odpojeno'"\}/g, currentNarrativeLanguage.toUpperCase() === 'EN' ? "'Online' or 'Offline'" : "'Připojeno' or 'Odpojeno'");
 
-
         return basePromptText;
     };
 
@@ -406,22 +559,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function addMessageToLog(text, sender) {
         if (!storyLog) return;
+    
+        if (sender === 'player' && text.startsWith("My callsign is") && text.endsWith("I am ready to start the game.")) {
+            console.log("Skipping initial callsign prompt for story log:", text);
+            return;
+        }
+    
         const messageDiv = document.createElement('div');
         messageDiv.classList.add('message', `${sender}-message`);
-
+    
         text = text.replace(/_([^_]+)_|\*([^*]+)\*/g, (match, p1, p2) => `<em>${p1 || p2}</em>`);
-
+    
         const paragraphs = text.split(/\n\s*\n/).filter(p => p.trim() !== '');
         if (paragraphs.length === 0 && text.trim() !== '') {
             paragraphs.push(text.trim());
         }
-
+    
         paragraphs.forEach(paraText => {
             const p = document.createElement('p');
             p.innerHTML = paraText.replace(/\n/g, '<br>');
             messageDiv.appendChild(p);
         });
-
+    
         storyLog.appendChild(messageDiv);
         if (storyLog.parentElement) {
             storyLog.parentElement.scrollTop = storyLog.parentElement.scrollHeight;
@@ -599,7 +758,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (highlight) highlightElementUpdate(el);
                     }
                 } else if (currentVal === '' || currentVal === initialPlaceholder || currentVal === defaultValue) {
-                    // el.textContent = defaultValue;
+                    // No change if value is undefined/null and current text is already a placeholder
                 }
             }
         };
@@ -683,7 +842,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (currentAlertTextContent !== localizedAlertText || currentAlertClasses !== infoAlertLevel.className) {
                     highlightElementUpdate(infoAlertLevel);
                 }
-            } else if (currentAlertTextContent === '' || currentAlertTextContent === unknown) {
+            } else if (currentAlertTextContent === '' || currentAlertTextContent === unknown || currentAlertTextContent === (uiLangData[currentAppLanguage]?.alert_level_info || 'Status')) { // Check against placeholder or default info
                 const initialAlertKey = 'alert_level_green';
                 infoAlertLevel.textContent = uiLangData[currentAppLanguage]?.[initialAlertKey] || 'Green';
                 infoAlertLevel.className = 'value status-ok';
@@ -706,17 +865,18 @@ document.addEventListener('DOMContentLoaded', () => {
             initialPlaceholder: unknown
         });
 
+        const enemyIntelVisible = enemyIntelConsoleBox && enemyIntelConsoleBox.style.display !== 'none';
         setText(infoEnemyShipType, updates.enemy_ship_type, {
             initialPlaceholder: unknown,
-            highlight: enemyIntelConsoleBox.style.display !== 'none'
+            highlight: enemyIntelVisible
         });
         setMeter(meterEnemyShields, infoEnemyShieldsStatus, updates.enemy_shields_pct, 'enemy_shields', {
             newStatusText: updates.enemy_shields_status_text,
-            highlight: enemyIntelConsoleBox.style.display !== 'none',
+            highlight: enemyIntelVisible,
             initialPlaceholder: `${uiLangData[currentAppLanguage]?.offline || 'Offline'}: 0%`
         });
         setMeter(meterEnemyHull, infoEnemyHullIntegrity, updates.enemy_hull_pct, 'enemy_hull', {
-            highlight: enemyIntelConsoleBox.style.display !== 'none',
+            highlight: enemyIntelVisible,
             initialPlaceholder: '100%'
         });
     }
@@ -752,7 +912,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function handleGameStateIndicators(indicators, isDuringInitialBoot = false) {
         if (!indicators) return;
-        const CONDITIONAL_CONSOLE_BOOT_DELAY = 3000;
+        const CONDITIONAL_CONSOLE_BOOT_DELAY = isDuringInitialBoot ? 3000 : 0;
 
 
         const shouldShowEnemyIntel = indicators.combat_engaged === true;
@@ -760,20 +920,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const isCurrentlyVisible = enemyIntelConsoleBox.style.display !== 'none';
             if (shouldShowEnemyIntel) {
                 if (!isCurrentlyVisible) {
-                    if (isDuringInitialBoot) {
-                        setTimeout(() => {
-                            animateConsoleBox(enemyIntelConsoleBox.id, true);
-                        }, CONDITIONAL_CONSOLE_BOOT_DELAY);
-                    } else {
+                    setTimeout(() => {
                         animateConsoleBox(enemyIntelConsoleBox.id, true);
-                    }
+                    }, CONDITIONAL_CONSOLE_BOOT_DELAY);
                 }
             } else {
                 if (isCurrentlyVisible) {
                     animateConsoleBox(enemyIntelConsoleBox.id, false);
                     const content = enemyIntelConsoleBox.querySelector('.console-box-content');
                     const hideEnemyIntel = () => {
-                        if (!enemyIntelConsoleBox.classList.contains('is-expanded') && enemyIntelConsoleBox.style.display !== 'none') {
+                        if (enemyIntelConsoleBox && !enemyIntelConsoleBox.classList.contains('is-expanded') && enemyIntelConsoleBox.style.display !== 'none') {
                             enemyIntelConsoleBox.style.display = 'none';
                         }
                         if (content) content.removeEventListener('transitionend', hideEnemyIntelConditional);
@@ -785,10 +941,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     };
 
                     if (content) {
-                        content.addEventListener('transitionend', hideEnemyIntelConditional, {
-                            once: true
-                        });
-                        setTimeout(hideEnemyIntel, 1600);
+                        content.addEventListener('transitionend', hideEnemyIntelConditional, { once: true });
+                        setTimeout(hideEnemyIntel, 1600); // Fallback
                     } else {
                         setTimeout(hideEnemyIntel, 1600);
                     }
@@ -801,21 +955,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const isCurrentlyVisible = commsChannelConsoleBox.style.display !== 'none';
             if (shouldShowCommsChannel) {
                 if (!isCurrentlyVisible) {
-                    if (isDuringInitialBoot) {
-                        setTimeout(() => {
-                            animateConsoleBox(commsChannelConsoleBox.id, true);
-                        }, CONDITIONAL_CONSOLE_BOOT_DELAY);
-                    } else {
+                     setTimeout(() => {
                         animateConsoleBox(commsChannelConsoleBox.id, true);
-                    }
+                    }, CONDITIONAL_CONSOLE_BOOT_DELAY);
                 }
             } else {
                 if (isCurrentlyVisible) {
                     animateConsoleBox(commsChannelConsoleBox.id, false);
-
                     const content = commsChannelConsoleBox.querySelector('.console-box-content');
                     const hideComms = () => {
-                        if (!commsChannelConsoleBox.classList.contains('is-expanded') && commsChannelConsoleBox.style.display !== 'none') {
+                        if (commsChannelConsoleBox && !commsChannelConsoleBox.classList.contains('is-expanded') && commsChannelConsoleBox.style.display !== 'none') {
                             commsChannelConsoleBox.style.display = 'none';
                         }
                         if (content) content.removeEventListener('transitionend', hideCommsConditional);
@@ -825,12 +974,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             hideComms();
                         }
                     };
-
-                    if (content) {
-                        content.addEventListener('transitionend', hideCommsConditional, {
-                            once: true
-                        });
-                        setTimeout(hideComms, 1600);
+                     if (content) {
+                        content.addEventListener('transitionend', hideCommsConditional, { once: true });
+                        setTimeout(hideComms, 1600); // Fallback
                     } else {
                         setTimeout(hideComms, 1600);
                     }
@@ -841,7 +987,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (indicators.combat_engaged === true) {
             currentPromptType = 'combat';
         } else {
-            if (currentPromptType !== 'default') {
+            if (currentPromptType !== 'default') { // Avoid unnecessary changes if already default
                 currentPromptType = 'default';
             }
         }
@@ -849,20 +995,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     async function callGeminiAPI(currentTurnHistory) {
-        if (!GEMINI_API_KEY || GEMINI_API_KEY === "YOUR_GEMINI_API_KEY_HERE") {
-            addMessageToLog("CRITICAL ERROR: API Key not configured. Please replace placeholder in script.js.", 'system');
+        if (!GEMINI_API_KEY) {
+            addMessageToLog("SYSTEM ERROR: Gemini API Key is not available. Cannot proceed.", 'system');
             const errorText = (uiLangData[currentAppLanguage]?.status_error || "Error");
             if (systemStatusIndicator) {
                 systemStatusIndicator.textContent = errorText;
                 systemStatusIndicator.className = 'status-indicator status-danger';
             }
+            setGMActivity(false);
             return null;
         }
 
         setGMActivity(true);
         clearSuggestedActions();
 
-        const activePromptType = currentTurnHistory.length === 1 && currentTurnHistory[0].role === 'user' && currentTurnHistory[0].parts[0].text.startsWith("My callsign is") ? 'initial' : currentPromptType;
+        const activePromptType = (isInitialGameLoad || (currentTurnHistory.length === 1 && currentTurnHistory[0].role === 'user' && currentTurnHistory[0].parts[0].text.startsWith("My callsign is"))) ? 'initial' : currentPromptType;
         const systemPromptText = getSystemPrompt(playerCallsign, activePromptType);
 
         if (systemPromptText.startsWith("Error:")) {
@@ -880,22 +1027,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 topP: 0.95,
                 maxOutputTokens: 8000,
                 responseMimeType: "application/json",
+                thinkingConfig: {
+                    thinkingBudget: 0
+                }
             },
             safetySettings: [{
                     category: "HARM_CATEGORY_HARASSMENT",
-                    threshold: "BLOCK_MEDIUM_AND_ABOVE"
+                    threshold: "BLOCK_NONE"
                 },
                 {
                     category: "HARM_CATEGORY_HATE_SPEECH",
-                    threshold: "BLOCK_MEDIUM_AND_ABOVE"
+                    threshold: "BLOCK_NONE"
                 },
                 {
                     category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-                    threshold: "BLOCK_MEDIUM_AND_ABOVE"
+                    threshold: "BLOCK_NONE"
                 },
                 {
                     category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-                    threshold: "BLOCK_MEDIUM_AND_ABOVE"
+                    threshold: "BLOCK_NONE"
                 },
             ],
             systemInstruction: {
@@ -942,13 +1092,17 @@ document.addEventListener('DOMContentLoaded', () => {
                         }]
                     });
 
+                    lastKnownDashboardUpdates = parsed.dashboard_updates;
+                    lastKnownGameStateIndicators = parsed.game_state_indicators;
+
                     updateDashboard(parsed.dashboard_updates);
                     displaySuggestedActions(parsed.suggested_actions);
                     handleGameStateIndicators(parsed.game_state_indicators, isInitialGameLoad);
-                    if (isInitialGameLoad) {
-                        isInitialGameLoad = false;
-                    }
 
+                    if (isInitialGameLoad) { // isInitialGameLoad is true for the very first turn of a new game
+                        isInitialGameLoad = false; // Set to false after the first successful AI response
+                    }
+                    saveGameState(); // Save after successful processing
 
                     const onlineText = (uiLangData[currentAppLanguage]?.system_status_online_short || "System Online");
                     if (systemStatusIndicator) {
@@ -983,26 +1137,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function startGame() {
-        playerCallsign = playerCallsignInput ? playerCallsignInput.value.trim() : "";
-        if (!playerCallsign) {
+        const enteredCallsign = playerCallsignInput ? playerCallsignInput.value.trim() : "";
+        if (!enteredCallsign) {
             alert(uiLangData[currentAppLanguage]?.placeholder_enter_callsign || "Please enter your callsign.");
             if (playerCallsignInput) playerCallsignInput.focus();
             return;
         }
 
-        // Transition from initial state
-        document.body.classList.remove('initial-state');
+        clearGameState(); // Clear any old state for a new game
+        playerCallsign = enteredCallsign; // Set callsign after clearing
 
+        document.body.classList.remove('initial-state');
         if (nameInputSection) nameInputSection.style.display = 'none';
         if (actionInputSection) actionInputSection.style.display = 'flex';
+        if (storyLogViewport) storyLogViewport.classList.add('spawn-animation');
 
-        // Animate story log viewport appearance
-        if (storyLogViewport) {
-            storyLogViewport.classList.add('spawn-animation');
-        }
-        // suggestedActionsWrapper will become visible automatically as its display:none rule from .initial-state is removed.
-
-        isInitialGameLoad = true;
+        isInitialGameLoad = true; // This is the initial load for this new game session
 
         if (playerActionInput) {
             playerActionInput.value = '';
@@ -1013,11 +1163,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         updateDashboard({
             callsign: playerCallsign
-        });
+        }); // Show callsign immediately
         addMessageToLog(`${uiLangData[currentAppLanguage]?.connecting || 'Connecting as'}: ${playerCallsign}...`, 'system');
 
-        currentPromptType = 'initial';
-        gameHistory = [{
+        currentPromptType = 'initial'; // Ensure initial prompt for a new game
+        gameHistory = [{ // Reset game history for the new game
             role: "user",
             parts: [{
                 text: `My callsign is ${playerCallsign}. I am ready to start the game.`
@@ -1025,19 +1175,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }];
         clearSuggestedActions();
 
-        const narrative = await callGeminiAPI(gameHistory);
+        const narrative = await callGeminiAPI(gameHistory); // This will call saveGameState on success
         if (narrative) {
             addMessageToLog(narrative, 'gm');
-            triggerCockpitBootAnimation(); // Animates Ship Status & Nav Data
+            triggerCockpitBootAnimation();
         } else {
-            // Revert to initial state appearance if game start fails
             document.body.classList.add('initial-state');
-            if (nameInputSection) nameInputSection.style.display = 'flex'; // Or its initial display type
+            if (nameInputSection) nameInputSection.style.display = 'flex';
             if (actionInputSection) actionInputSection.style.display = 'none';
             if (storyLogViewport) storyLogViewport.classList.remove('spawn-animation');
-
             addMessageToLog("Failed to initialize session. Please check console and try again.", 'system');
-            isInitialGameLoad = false;
+            // isInitialGameLoad remains true, as the game didn't successfully start
         }
     }
 
@@ -1063,7 +1211,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 text: action
             }]
         });
-        const narrative = await callGeminiAPI(gameHistory);
+        // isInitialGameLoad should be false here if game is ongoing
+        const narrative = await callGeminiAPI(gameHistory); // This will save state on success
         if (narrative) {
             addMessageToLog(narrative, 'gm');
         }
@@ -1071,11 +1220,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function initializeDashboardDefaultTexts() {
         const unknown = uiLangData[currentAppLanguage]?.unknown || '---';
-        const na = '--';
+        const na = uiLangData[currentAppLanguage]?.not_available_short || 'N/A'; // Use N/A for cargo
         const onlineText = uiLangData[currentAppLanguage]?.online || 'Online';
         const offlineText = uiLangData[currentAppLanguage]?.offline || 'Offline';
 
-        if (infoPlayerCallsign) infoPlayerCallsign.textContent = playerCallsign || unknown;
+        // Only set to default if no playerCallsign (i.e., truly new game or after clearGameState)
+        if (!playerCallsign && infoPlayerCallsign) infoPlayerCallsign.textContent = unknown;
         if (infoPlayerCredits) infoPlayerCredits.textContent = `${unknown} UEC`;
         if (infoPlayerReputation) infoPlayerReputation.textContent = unknown;
         if (infoPlayerAffiliation) infoPlayerAffiliation.textContent = unknown;
@@ -1083,9 +1233,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (infoShipName) infoShipName.textContent = unknown;
         if (infoShipType) infoShipType.textContent = unknown;
 
-        setMeter(meterShipIntegrity, infoShipIntegrity, '0', 'integrity', { initialPlaceholder: '0%' });
-        setMeter(meterShipShields, infoShipShields, '0', 'shields', { newStatusText: onlineText, initialPlaceholder: `${onlineText}: 0%` });
-        setMeter(meterShipFuel, infoShipFuel, '0', 'fuel', { initialPlaceholder: '0%' });
+        // For meters, set to a defined initial state, updateDashboard will fill them if data exists
+        setMeter(meterShipIntegrity, infoShipIntegrity, '0', 'integrity', { highlight: false, initialPlaceholder: '0%' });
+        setMeter(meterShipShields, infoShipShields, '0', 'shields', { highlight: false, newStatusText: onlineText, initialPlaceholder: `${onlineText}: 0%` });
+        setMeter(meterShipFuel, infoShipFuel, '0', 'fuel', { highlight: false, initialPlaceholder: '0%' });
+
 
         if (infoShipCargo) infoShipCargo.textContent = `${na}/${na} SCU`;
         if (infoShipSpeed) infoShipSpeed.textContent = `0 m/s`;
@@ -1108,15 +1260,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (infoStardate) infoStardate.textContent = unknown;
 
         if (infoEnemyShipType) infoEnemyShipType.textContent = unknown;
-        setMeter(meterEnemyShields, infoEnemyShieldsStatus, '0', 'enemy_shields', { newStatusText: offlineText, initialPlaceholder: `${offlineText}: 0%` });
-        setMeter(meterEnemyHull, infoEnemyHullIntegrity, '100', 'enemy_hull', { initialPlaceholder: '100%' });
+        setMeter(meterEnemyShields, infoEnemyShieldsStatus, '0', 'enemy_shields', { highlight: false, newStatusText: offlineText, initialPlaceholder: `${offlineText}: 0%` });
+        setMeter(meterEnemyHull, infoEnemyHullIntegrity, '100', 'enemy_hull', { highlight: false, initialPlaceholder: '100%' });
 
 
         if (playerCallsignInput) playerCallsignInput.placeholder = uiLangData[currentAppLanguage]?.placeholder_callsign_login || "Enter callsign...";
         if (playerActionInput) playerActionInput.placeholder = uiLangData[currentAppLanguage]?.placeholder_command || "Enter command...";
 
-        if (commsChannelConsoleBox) commsChannelConsoleBox.style.display = 'none';
-        if (enemyIntelConsoleBox) enemyIntelConsoleBox.style.display = 'none';
+        // These are handled by handleGameStateIndicators or clearGameState for visibility
+        // if (commsChannelConsoleBox) commsChannelConsoleBox.style.display = 'none';
+        // if (enemyIntelConsoleBox) enemyIntelConsoleBox.style.display = 'none';
     }
 
     function autoGrowTextarea(textarea) {
@@ -1134,12 +1287,9 @@ document.addEventListener('DOMContentLoaded', () => {
         textarea.style.height = newHeight + 'px';
     }
 
-    // MODIFIED: consoleBoxAnimationConfig - Captain and Mission removed, they are opened by default.
     const consoleBoxAnimationConfig = [
         { id: 'ship-status-console-box', delay: 1200 },
         { id: 'navigation-data-console-box', delay: 1200 }
-        // Removed: captain-status-console-box and mission-intel-console-box
-        // These will be opened by default in initializeCollapsibleConsoleBoxes
     ];
 
     function animateConsoleBox(boxId, shouldExpand) {
@@ -1154,7 +1304,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (shouldExpand && box.style.display === 'none') {
-            box.style.display = 'block'; // Changed to 'block' as a general default
+            box.style.display = 'block';
         }
 
         requestAnimationFrame(() => {
@@ -1166,6 +1316,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 box.classList.remove('is-expanded');
                 header.setAttribute('aria-expanded', 'false');
                 content.setAttribute('aria-hidden', 'true');
+                // Note: Hiding the box after collapse for conditional ones is handled by handleGameStateIndicators or clearGameState
             }
         });
     }
@@ -1181,7 +1332,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // MODIFIED: initializeCollapsibleConsoleBoxes - to handle default expanded states
     function initializeCollapsibleConsoleBoxes() {
         const consoleBoxes = document.querySelectorAll('.console-box.collapsible');
         consoleBoxes.forEach(box => {
@@ -1194,34 +1344,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 const isConditionalConsole = box.id === 'comms-channel-console-box' || box.id === 'enemy-intel-console-box';
 
                 if (isAlwaysOpenConsole) {
-                    // These are open by default, even before game starts.
-                    box.style.display = 'block'; // Ensure visibility
-                    animateConsoleBox(box.id, true); // Expand them (CSS handles the animation)
+                    box.style.display = 'block';
+                    animateConsoleBox(box.id, true);
                 } else if (isStandardBootAnimationConsole) {
-                    // These are part of the startGame boot animation (e.g., Ship Status, Nav Data)
-                    // They start visible but collapsed. triggerCockpitBootAnimation will expand them.
                     box.style.display = 'block';
                     header.setAttribute('aria-expanded', 'false');
                     content.setAttribute('aria-hidden', 'true');
-                    box.classList.remove('is-expanded'); // Ensure it starts collapsed
+                    box.classList.remove('is-expanded');
                 } else if (isConditionalConsole) {
-                    // These appear based on game state (Comms, Enemy Intel)
-                    box.style.display = 'none'; // Initially hidden
+                    box.style.display = 'none'; // Initially hidden, handleGameStateIndicators will show them
                     header.setAttribute('aria-expanded', 'false');
                     content.setAttribute('aria-hidden', 'true');
                     box.classList.remove('is-expanded');
                 }
-                // No 'else' needed here, assuming all collapsibles are covered.
 
-                // Standard click/keydown listeners for toggling
                 header.addEventListener('click', () => {
-                    if (box.style.display !== 'none') { // Only toggle if visible
+                    if (box.style.display !== 'none') {
                         const isNowExpanded = !box.classList.contains('is-expanded');
                         animateConsoleBox(box.id, isNowExpanded);
                     }
                 });
-
-                header.setAttribute('tabindex', '0'); // For accessibility
+                header.setAttribute('tabindex', '0');
                 header.addEventListener('keydown', (e) => {
                     if ((e.key === 'Enter' || e.key === ' ') && box.style.display !== 'none') {
                         e.preventDefault();
@@ -1233,47 +1376,100 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function startNewGameSession() {
+        if (confirm(uiLangData[currentAppLanguage]?.confirm_new_game || "Are you sure you want to start a new game? Current progress will be lost.")) {
+            clearGameState();
+            // Reloading is often the simplest way to ensure a completely fresh state for UI and logic.
+            // Alternatively, you could call initializeApp() again after clearing, but reload is safer.
+            window.location.reload();
+        }
+    }
 
     async function initializeApp() {
-        // Add initial state class to body for CSS targeting
-        document.body.classList.add('initial-state');
+        // 1. Set language (from localStorage or default)
+        setAppLanguage(currentAppLanguage);
 
-        setAppLanguage(currentAppLanguage); // This also calls initializeDashboardDefaultTexts
-
-        if (systemStatusIndicator) {
-            systemStatusIndicator.textContent = (uiLangData[currentAppLanguage]?.standby || "Standby");
-            systemStatusIndicator.className = 'status-indicator status-warning';
+        // 2. Setup API Key (prompt if not found in localStorage)
+        const apiKeyAvailable = setupApiKey();
+        if (!apiKeyAvailable) {
+            // UI should reflect that game cannot start: initial state with name input and error message
+            document.body.classList.add('initial-state');
+            if (nameInputSection) nameInputSection.style.display = 'flex';
+            if (actionInputSection) actionInputSection.style.display = 'none';
+            if (storyLogViewport) storyLogViewport.classList.remove('spawn-animation'); // Not yet spawned
+            initializeDashboardDefaultTexts(); // Show default placeholders
+            initializeCollapsibleConsoleBoxes(); // Set up console structure
+            return; // Stop initialization
         }
 
-        const promptsLoaded = await loadAllPrompts();
+        // 3. Try to load existing game state
+        const gameWasLoaded = loadGameState(); // This also sets isInitialGameLoad
 
-        if (!GEMINI_API_KEY || GEMINI_API_KEY === "YOUR_GEMINI_API_KEY_HERE" || !promptsLoaded) {
-            const errorMsg = !promptsLoaded ? "CRITICAL: Failed to load game prompts." : "CRITICAL: API Key not configured.";
-            console.error(errorMsg);
-            addMessageToLog(errorMsg, 'system');
-            if (systemStatusIndicator) {
-                systemStatusIndicator.textContent = (uiLangData[currentAppLanguage]?.status_error || "Error");
-                systemStatusIndicator.className = 'status-indicator status-danger';
-            }
+        // 4. Load all necessary game prompts
+        const promptsLoaded = await loadAllPrompts();
+        if (!promptsLoaded) {
+            // This is a critical failure.
+            addMessageToLog("CRITICAL: Essential game prompts failed to load. The game cannot continue.", 'system');
             if (startGameButton) startGameButton.disabled = true;
             if (playerCallsignInput) playerCallsignInput.disabled = true;
-            if (playerActionInput) playerActionInput.disabled = true;
-            if (sendActionButton) sendActionButton.disabled = true;
-            if (languageToggleButton) languageToggleButton.disabled = true;
-            document.body.classList.remove('initial-state'); // Remove if erroring out, show normal layout
-        } else {
-            if (playerCallsignInput) playerCallsignInput.focus();
+            if (actionInputSection) actionInputSection.style.display = 'none';
+            // Ensure UI reflects error state regardless of whether a game was loaded
+            document.body.classList.remove('initial-state'); // Show main layout
+            if (nameInputSection && !gameWasLoaded) nameInputSection.style.display = 'flex'; // Show name input if no game loaded
+            else if (nameInputSection) nameInputSection.style.display = 'none';
+            if (storyLogViewport) storyLogViewport.classList.remove('spawn-animation');
+            return; // Stop further initialization
         }
 
-        clearSuggestedActions();
-        initializeCollapsibleConsoleBoxes(); // This will now handle default expanded consoles
+        // 5. Finalize UI based on whether a game was loaded or it's a new start
+        if (gameWasLoaded) {
+            document.body.classList.remove('initial-state');
+            if (nameInputSection) nameInputSection.style.display = 'none';
+            if (actionInputSection) actionInputSection.style.display = 'flex';
+            if (storyLogViewport) {
+                storyLogViewport.classList.remove('spawn-animation'); // Remove if it was there from a failed previous init
+                storyLogViewport.style.opacity = 1; // Ensure visible
+                storyLogViewport.style.transform = 'none';
+            }
+
+            // Run boot animations for always-on and standard consoles
+            animateConsoleBox('captain-status-console-box', true);
+            animateConsoleBox('mission-intel-console-box', true);
+            triggerCockpitBootAnimation(); // Animates Ship Status & Nav Data
+
+            addMessageToLog(`Welcome back, Captain ${playerCallsign}! Session resumed.`, 'system');
+            if (playerActionInput) playerActionInput.focus();
+
+            // System status should reflect online if game loaded and prompts are OK
+            if (systemStatusIndicator) {
+                systemStatusIndicator.textContent = (uiLangData[currentAppLanguage]?.system_status_online_short || "System Online");
+                systemStatusIndicator.className = 'status-indicator status-ok';
+            }
+
+        } else {
+            // No saved game, or load failed: UI for new game start
+            document.body.classList.add('initial-state');
+            if (nameInputSection) nameInputSection.style.display = 'flex';
+            if (actionInputSection) actionInputSection.style.display = 'none';
+            initializeDashboardDefaultTexts(); // Reset dashboard for a new game
+            if (playerCallsignInput) playerCallsignInput.focus();
+
+            if (systemStatusIndicator) {
+                systemStatusIndicator.textContent = (uiLangData[currentAppLanguage]?.standby || "Standby");
+                systemStatusIndicator.className = 'status-indicator status-warning';
+            }
+        }
+        
+        initializeCollapsibleConsoleBoxes(); // Initialize console collapse/expand behavior
         if (playerActionInput) {
             autoGrowTextarea(playerActionInput);
         }
+        clearSuggestedActions(); // Clear any lingering suggestions from previous state
     }
 
     // Event Listeners
     if (languageToggleButton) languageToggleButton.addEventListener('click', toggleAppLanguage);
+    if (newGameButton) newGameButton.addEventListener('click', startNewGameSession);
     if (startGameButton) startGameButton.addEventListener('click', startGame);
     if (playerCallsignInput) playerCallsignInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') startGame();
