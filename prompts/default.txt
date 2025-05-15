@@ -27,13 +27,13 @@ Your ENTIRE response MUST be a single, valid JSON object.
         //   - Enemy intel IF COMBAT STARTS THIS TURN: `enemy_ship_type` (invented name in ${currentNarrativeLanguage.toUpperCase()}), `enemy_shields_status_text` (in ${currentNarrativeLanguage.toUpperCase()}).
 
         // Example of changed fields:
-        // "integrityPct": "string (e.g., '80')", // Numerical, no translation needed
+        // "integrityPct": "string (Numerical)", // Numerical, no translation needed
         // "shieldsStatus": "string (ONLY if shield status TEXT changes, IN NARRATIVE LANGUAGE. E.g., if they go from 'Online' to 'Offline' or vice-versa, or a new descriptive status like 'Fluctuating'.)",
-        // "shieldsPct": "string (e.g., '0')"(ONLY if shield percentage changes due to damage, recharge, or going online/offline.), // Numerical
-        // "fuelPct": "string (e.g., '55')", // Numerical
-        // "cargo": "string (If cargo changes, the new description IN THE NARRATIVE LANGUAGE, plus units. E.g., for EN: 'Volatile Xenocrystals: 5/10 SCU'. The description itself must be in ${currentNarrativeLanguage.toUpperCase()}.)",
-        // "currentShipSpeed": "string (e.g., '1500 m/s'. If descriptive, like 'Escaping Debris Field', this description MUST be IN THE NARRATIVE LANGUAGE.)",
-        // "credits": "string (e.g., '4500 UEC')", // 'UEC' is universal
+        // "shieldsPct": "string"(ONLY if shield percentage changes due to damage, recharge, or going online/offline.), // Numerical
+        // "fuelPct": "string", // Numerical
+        // "cargo": "string (If cargo changes, the new description IN THE NARRATIVE LANGUAGE, plus units.. The description itself must be in ${currentNarrativeLanguage.toUpperCase()}.)",
+        // "currentShipSpeed": "string ( If descriptive, like 'Escaping Debris Field', this description MUST be IN THE NARRATIVE LANGUAGE.)",
+        // "credits": "string", // 'UEC' is universal
         // "reputation": "string (If reputation changes, the new description IN THE NARRATIVE LANGUAGE.)",
         // "affiliation": "string (If affiliation changes, the new description IN THE NARRATIVE LANGUAGE.)",
         // "objective": "string (If the objective changes, the new compelling objective, crafted originally IN THE NARRATIVE LANGUAGE.)",
@@ -43,16 +43,16 @@ Your ENTIRE response MUST be a single, valid JSON object.
         // "systemFaction": "string (If system faction changes, the new faction name/description IN THE NARRATIVE LANGUAGE.)",
         // "environment": "string (If environment changes, the new description IN THE NARRATIVE LANGUAGE.)",
         // "sensorConditions": "string (If sensor conditions change, the new description IN THE NARRATIVE LANGUAGE.)",
-        // "stardate": "string (e.g., 'SD 47633.1')", // Typically not translated
+        // "stardate": "string ()", // Typically not translated
         // "directive_status": "string (If status changes, a concise description IN THE NARRATIVE LANGUAGE, translating the *concept* of an activity from the allowed list. E.g., 'Traveling', 'Investigating', 'Communicating' would be 'Cestování', 'Průzkum', 'Komunikace' in Czech.)",
-        // "comms_channel_info": "string (If comms status changes, e.g., 'Secure channel: UEF Command' or 'Broadcast: Distress signal detected', this information MUST be IN THE NARRATIVE LANGUAGE.)",
+        // "comms_channel_info": "string (If comms status changes,, this information MUST be IN THE NARRATIVE LANGUAGE.)",
 
         // ---- Enemy Intel: Only include if combat has JUST started THIS TURN via THIS default prompt response. ----
         // ---- If combat starts, provide initial enemy data. If already in combat, combat.txt handles updates. ----
         // "enemy_ship_type": "string (If combat starts, invent an original enemy ship type name IN THE NARRATIVE LANGUAGE.)",
         // "enemy_shields_status_text": "string (If combat starts, the shield status text, e.g., conceptual equivalent of 'Online', IN THE NARRATIVE LANGUAGE.)",
-        // "enemy_shields_pct": "string (If combat starts, e.g., '100')",
-        // "enemy_hull_pct": "string (If combat starts, e.g., '100')"
+        // "enemy_shields_pct": "string ",
+        // "enemy_hull_pct": "string "
     },
     "suggested_actions": [
         // array of 3 short, actionable strings relevant to the current narrative situation.

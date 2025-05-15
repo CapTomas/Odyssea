@@ -35,11 +35,11 @@ Your ENTIRE response MUST be a single, valid JSON object.
         //   - `alertLevel` (MUST use English key-phrases 'Condition Red', 'Condition Yellow', 'Condition Green' if it changes. Typically 'Condition Red' during combat).
 
         // Player ship updates (examples):
-        // "integrityPct": "string (e.g., '75')",
-        // "shieldsStatus": "string (Textual part of shield status, IN NARRATIVE LANGUAGE. E.g., for CS: 'Nestabilní' if EN 'Fluctuating')",
-        // "shieldsPct": "string (e.g., '40')",
-        // "fuelPct": "string (if used for intense maneuvers, e.g., '60')",
-        // "currentShipSpeed": "string (if changed significantly, e.g., 'Max Thrust - Evasive')",
+        // "integrityPct": "string ",
+        // "shieldsStatus": "string (Textual part of shield status, IN NARRATIVE LANGUAGE. )",
+        // "shieldsPct": "string ",
+        // "fuelPct": "string (if used for intense maneuvers,)",
+        // "currentShipSpeed": "string (if changed significantly,)",
 
         // Enemy ship updates (examples):
         // "enemy_ship_type": "string (Only if it *changes*. E.g., new ship type name for reinforcements, IN NARRATIVE LANGUAGE.)",

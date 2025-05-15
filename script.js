@@ -7,12 +7,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const PROMPT_URLS = {
         initial: 'prompts/initial.txt',
         default: 'prompts/default.txt',
-        combat: 'prompts/combat.txt'
+        combat: 'prompts/combat.txt',
+        starts: 'prompts/helpers/starts.txt',
+        ship_names_en: 'prompts/helpers/ship_names_en.txt',
+        ship_names_cs: 'prompts/helpers/ship_names_cs.txt' 
     };
     let gamePrompts = {
         initial: null,
         default: null,
-        combat: null
+        combat: null,
+        starts: null,
+        ship_names_en: null, 
+        ship_names_cs: null 
     };
     let currentPromptType = 'initial'; // 'initial', 'default', 'combat'
 
@@ -329,16 +335,62 @@ document.addEventListener('DOMContentLoaded', () => {
     const getSystemPrompt = (currentCallsignForPrompt, promptTypeToUse) => {
         const narrativeLanguageInstruction = NARRATIVE_LANG_PROMPT_PARTS[currentNarrativeLanguage] || NARRATIVE_LANG_PROMPT_PARTS[DEFAULT_LANGUAGE];
         let basePromptText = gamePrompts[promptTypeToUse] || gamePrompts.default;
-
+    
         if (!basePromptText || basePromptText.startsWith("Error:")) {
             console.error(`Error: Prompt text for type "${promptTypeToUse}" is invalid or not loaded.`);
             return `{"narrative": "SYSTEM ERROR: Critical prompt data missing. Cannot proceed.", "dashboard_updates": {}, "suggested_actions": ["Contact support."], "game_state_indicators": {"activity_status": "Error", "combat_engaged": false, "comms_channel_active": false}}`;
         }
-
+    
+        // --- NEW LOGIC FOR INJECTING START IDEAS ---
+        if (promptTypeToUse === 'initial') {
+            // --- Inject Start Ideas (as before) ---
+            if (gamePrompts.starts) {
+                const allStartIdeas = gamePrompts.starts.split('\n').map(idea => idea.trim()).filter(idea => idea.length > 0);
+                let selectedIdeas = [];
+                if (allStartIdeas.length > 0) {
+                    const shuffledIdeas = [...allStartIdeas].sort(() => 0.5 - Math.random());
+                    selectedIdeas = shuffledIdeas.slice(0, 3);
+                }
+                basePromptText = basePromptText.replace(/\$\{startIdea1\}/g, selectedIdeas[0] || "GM Custom Scenario Idea 1");
+                basePromptText = basePromptText.replace(/\$\{startIdea2\}/g, selectedIdeas[1] || "GM Custom Scenario Idea 2");
+                basePromptText = basePromptText.replace(/\$\{startIdea3\}/g, selectedIdeas[2] || "GM Custom Scenario Idea 3");
+            }
+    
+            // --- NEW LOGIC FOR INJECTING SHIP NAME IDEAS ---
+            let shipNameIdeasFileContent = null;
+            if (currentNarrativeLanguage === 'cs' && gamePrompts.ship_names_cs) {
+                shipNameIdeasFileContent = gamePrompts.ship_names_cs;
+            } else if (gamePrompts.ship_names_en) { // Default to English if CS not found or lang is EN
+                shipNameIdeasFileContent = gamePrompts.ship_names_en;
+            }
+    
+            if (shipNameIdeasFileContent) {
+                const allShipNameIdeas = shipNameIdeasFileContent.split('\n').map(name => name.trim()).filter(name => name.length > 0);
+                let selectedShipNames = [];
+                if (allShipNameIdeas.length > 0) {
+                    const shuffledNames = [...allShipNameIdeas].sort(() => 0.5 - Math.random());
+                    selectedShipNames = shuffledNames.slice(0, 3);
+                }
+                basePromptText = basePromptText.replace(/\$\{suggestedShipName1\}/g, selectedShipNames[0] || `InventedNameAlpha`); // Fallback
+                basePromptText = basePromptText.replace(/\$\{suggestedShipName2\}/g, selectedShipNames[1] || `InventedNameBeta`);  // Fallback
+                basePromptText = basePromptText.replace(/\$\{suggestedShipName3\}/g, selectedShipNames[2] || `InventedNameGamma`); // Fallback
+            } else {
+                // Fallback if no ship name files are loaded
+                basePromptText = basePromptText.replace(/\$\{suggestedShipName1\}/g, `DefaultName1`);
+                basePromptText = basePromptText.replace(/\$\{suggestedShipName2\}/g, `DefaultName2`);
+                basePromptText = basePromptText.replace(/\$\{suggestedShipName3\}/g, `DefaultName3`);
+            }
+            // --- END OF NEW SHIP NAME LOGIC ---
+        }
+    
+        // Replace other placeholders (as before)
         basePromptText = basePromptText.replace(/\$\{narrativeLanguageInstruction\}/g, narrativeLanguageInstruction);
         basePromptText = basePromptText.replace(/\$\{currentCallsignForPrompt\}/g, currentCallsignForPrompt || 'UNKNOWN_CAPTAIN');
         basePromptText = basePromptText.replace(/\$\{currentNarrativeLanguage\.toUpperCase\(\)\}/g, currentNarrativeLanguage.toUpperCase());
-
+        // Add this line if it's not already there for the example in shipName field
+        basePromptText = basePromptText.replace(/\$\{currentNarrativeLanguage\.toUpperCase\(\) === 'EN' \? "'Online' or 'Offline'" : "'Připojeno' or 'Odpojeno'"\}/g, currentNarrativeLanguage.toUpperCase() === 'EN' ? "'Online' or 'Offline'" : "'Připojeno' or 'Odpojeno'");
+    
+    
         return basePromptText;
     };
 
@@ -1032,9 +1084,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (infoShipType) infoShipType.textContent = unknown;
 
         // Use setMeter for consistent initialization and placeholder handling
-        setMeter(meterShipIntegrity, infoShipIntegrity, '100', 'integrity', { initialPlaceholder: '100%' });
-        setMeter(meterShipShields, infoShipShields, '100', 'shields', { newStatusText: onlineText, initialPlaceholder: `${onlineText}: 100%` });
-        setMeter(meterShipFuel, infoShipFuel, '100', 'fuel', { initialPlaceholder: '100%' });
+        setMeter(meterShipIntegrity, infoShipIntegrity, '0', 'integrity', { initialPlaceholder: '0%' });
+        setMeter(meterShipShields, infoShipShields, '0', 'shields', { newStatusText: onlineText, initialPlaceholder: `${onlineText}: 0%` });
+        setMeter(meterShipFuel, infoShipFuel, '0', 'fuel', { initialPlaceholder: '0%' });
         
         if (infoShipCargo) infoShipCargo.textContent = `${na}/${na} SCU`;
         if (infoShipSpeed) infoShipSpeed.textContent = `0 m/s`;
