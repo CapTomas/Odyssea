@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
 
     let GEMINI_API_KEY = ""; // Will be populated by user input or localStorage
-    const DEFAULT_LANGUAGE = 'en';
+    const DEFAULT_LANGUAGE = 'cs';
     const UPDATE_HIGHLIGHT_DURATION = 5000; // ms
     const GAME_STATE_STORAGE_KEY = 'odysseyGameState';
 
